@@ -9,8 +9,12 @@ aideml/
 ├── aide/                   # All source code
 │   ├── backend/            # LLM backend integrations
 │   ├── example_tasks/      # Example tasks for the agent to solve
+│   │   ├── bitcoin_price/  # Bitcoin price prediction task data
+│   │   └── house_prices/   # House price regression task data
 │   ├── utils/              # Configuration, data preview, metrics, and other utilities
+│   │   └── viz_templates/  # HTML/JS templates for visualization
 │   ├── webui/              # Streamlit-based web UI
+│   │   └── style.css       # CSS styling for the web interface
 │   ├── agent.py            # Core agent logic for tree search and code generation
 │   ├── interpreter.py      # Executes and evaluates code solutions
 │   ├── journal.py          # Logging and recording experiment progress
@@ -39,7 +43,10 @@ aideml/
 ├── setup_dev.sh            # Development setup script
 ├── test_claude_code_backend.py     # Claude Code backend tests (root level)
 ├── test_integration_aide_ml.py     # Integration tests (root level)
-└── test_mcp_standalone.py          # Standalone MCP functionality tests (root level)
+├── test_mcp_standalone.py          # Standalone MCP functionality tests (root level)
+├── __init__.py             # Root package initialization
+├── LICENSE                 # Project license file
+└── README.md               # Project README documentation
 ```
 
 ## Core Modules Quick Reference
@@ -166,7 +173,7 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-085418.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-103739.md` for the latest implementation status.
 
 ## Using the New Features
 
