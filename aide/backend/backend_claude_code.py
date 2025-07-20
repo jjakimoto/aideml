@@ -102,8 +102,8 @@ def _create_mcp_config_for_func_spec(func_spec: FunctionSpec, config_path: Optio
     mcp_config = {
         "servers": {
             "aide": {
-                "command": "aide-mcp-server",  # Hypothetical MCP server for AIDE ML
-                "args": ["--mode", "function-call"],
+                "command": "python",
+                "args": ["-m", "aide.backend.mcp_server", "--mode", "stdio"],
                 "tools": {
                     f"call_{func_spec.name}": {
                         "description": func_spec.description,
@@ -123,42 +123,59 @@ def _create_mcp_config_for_func_spec(func_spec: FunctionSpec, config_path: Optio
     return mcp_config
 
 
-def _extract_function_call(response_text: str, func_spec: FunctionSpec, messages: list = None) -> Any:
-    """Extract function call from Claude Code response."""
-    # First check if we have MCP tool calls in the messages
-    if messages:
-        for message in messages:
-            # Check for MCP tool usage in the message
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                for tool_call in message.tool_calls:
-                    if tool_call.get('tool') == _convert_func_spec_to_mcp_tool(func_spec):
-                        # Return the tool call parameters
-                        return tool_call.get('input', {})
+def _extract_mcp_tool_call(messages: list, func_spec: FunctionSpec) -> Any:
+    """Extract MCP tool call from messages."""
+    if not messages:
+        return None
     
-    # Fallback to text extraction if no MCP tool calls found
-    # Look for JSON blocks in the response
+    expected_tool = _convert_func_spec_to_mcp_tool(func_spec)
+    for message in messages:
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                if tool_call.get('tool') == expected_tool:
+                    return tool_call.get('input', {})
+    return None
+
+
+def _extract_json_from_text(response_text: str) -> Any:
+    """Extract JSON data from text response with multiple fallback strategies."""
     import re
+    
+    # Strategy 1: Look for JSON blocks in code fences
     json_pattern = r"```json\s*(.*?)\s*```"
     json_matches = re.findall(json_pattern, response_text, re.DOTALL)
     
     if json_matches:
         for match in json_matches:
             try:
-                data = json.loads(match)
-                # Validate against function schema if needed
-                return data
+                return json.loads(match)
             except json.JSONDecodeError:
                 continue
     
-    # Try to parse the entire response as JSON
+    # Strategy 2: Try to parse the entire response as JSON
     try:
-        data = json.loads(response_text)
-        return data
+        return json.loads(response_text)
     except json.JSONDecodeError:
         pass
     
-    # If no valid JSON found, return the text
+    # Strategy 3: Return the original text if no valid JSON found
     return response_text
+
+
+def _extract_function_call(response_text: str, func_spec: FunctionSpec, messages: list = None) -> Any:
+    """Extract function call from Claude Code response.
+    
+    Uses a prioritized extraction strategy:
+    1. MCP tool calls from messages (if available)
+    2. JSON extraction from response text
+    """
+    # First try to extract MCP tool call
+    mcp_result = _extract_mcp_tool_call(messages, func_spec)
+    if mcp_result is not None:
+        return mcp_result
+    
+    # Fallback to text-based JSON extraction
+    return _extract_json_from_text(response_text)
 
 
 def query(
