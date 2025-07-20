@@ -30,6 +30,7 @@ aideml/
 │   ├── test_e2e_all_tasks.py
 │   ├── test_hybrid_backend.py
 │   ├── test_mcp_integration.py
+│   ├── test_performance_dashboard.py
 │   ├── test_performance_monitor.py
 │   └── test_specialized_prompts.py
 ├── environment.yml         # Conda environment specification
@@ -61,7 +62,10 @@ aideml/
 - `aide/backend/mcp_server.py` - MCP (Model Context Protocol) server for AIDE ML function calls.
 
 **Web UI:**
-- `aide/webui/app.py` - A Streamlit application for interacting with the AIDE ML agent.
+- `aide/webui/app.py` - Main entry point for the multi-page Streamlit application.
+- `aide/webui/pages/` - Directory containing individual pages:
+  - `1_🔬_Experiments.py` - Main experiments page for running AIDE ML tasks.
+  - `2_📊_Performance_Dashboard.py` - Real-time performance monitoring dashboard.
 
 **Utilities (`aide/utils/`):**
 - `aide/utils/config.py` - Manages configuration settings for the agent and experiments.
@@ -165,8 +169,21 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Multi-backend compatibility testing
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
+- ✅ Web-based Performance Dashboard: Real-time monitoring interface
+  - Interactive visualizations of backend performance metrics
+  - Time-series charts for query duration and success rates
+  - Token usage analysis and comparison across backends
+  - Export functionality for metrics data
+  - Multi-page Streamlit application structure
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-115738.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-120738.md` for the latest implementation status.
+
+**Performance Dashboard Access:**
+The web UI now includes a dedicated Performance Dashboard page. To access it:
+```bash
+python run_webui.py
+# Navigate to "📊 Performance Dashboard" in the sidebar
+```
 
 ## Using the New Features
 
@@ -251,6 +268,13 @@ The MCP (Model Context Protocol) integration enhances Claude Code's function cal
 5. **Graceful Fallback**: When MCP is not available or disabled, the backend falls back to text-based function specification in prompts.
 
 6. **Comprehensive Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py` (root level) with coverage for all refactored components.
+
+7. **Web-based Performance Dashboard**: Real-time monitoring interface with:
+   - Live performance metrics visualization
+   - Backend comparison charts
+   - Token usage tracking
+   - Success rate monitoring
+   - CSV export functionality
 
 ## Systematic Performance Benchmarking
 
