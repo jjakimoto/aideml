@@ -185,6 +185,7 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
+
 **Latest Enhancements (2025-01-20):**
 - ✅ Improved Token Counting: More accurate token estimation for Claude models
   - Character-based estimation (3.7 chars/token average for Claude)
@@ -204,7 +205,6 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Middleware support for request/response processing
   - Multi-function registration and management
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-091419.md` for the latest implementation status.
 
 ## Using the New Features
 
