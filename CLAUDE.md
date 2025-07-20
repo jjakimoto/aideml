@@ -6,11 +6,28 @@ This document provides a guide to the project structure of AIDE ML, an LLM-drive
 
 ```
 aideml/
+├── .github/                # GitHub-specific configurations
+│   └── workflows/          # GitHub Actions CI/CD workflows
+│       ├── auto-merge.yml  # Automated PR merging workflow
+│       ├── claude.yml      # Claude-specific workflow
+│       ├── pr-fix.yml      # PR fixing automation
+│       └── pr-review.yml   # PR review automation
 ├── aide/                   # All source code
 │   ├── backend/            # LLM backend integrations
 │   ├── example_tasks/      # Example tasks for the agent to solve
+│   │   ├── bitcoin_price/  # Bitcoin price prediction task data
+│   │   │   └── BTC-USD.csv # Bitcoin historical price data
+│   │   ├── house_prices/   # House price prediction task data
+│   │   │   ├── data_description.txt
+│   │   │   ├── sample_submission.csv
+│   │   │   ├── test.csv
+│   │   │   └── train.csv
+│   │   ├── bitcoin_price.md
+│   │   └── house_prices.md
 │   ├── utils/              # Configuration, data preview, metrics, and other utilities
 │   ├── webui/              # Streamlit-based web UI
+│   │   ├── app.py          # Main Streamlit application
+│   │   └── style.css       # Custom CSS styling
 │   ├── agent.py            # Core agent logic for tree search and code generation
 │   ├── interpreter.py      # Executes and evaluates code solutions
 │   ├── journal.py          # Logging and recording experiment progress
@@ -22,7 +39,7 @@ aideml/
 │   ├── papers/             # Research papers and references
 │   ├── explain.md          # Project explanation
 │   └── plan.md             # Claude Code integration plan
-├── sample_results/         # Example outputs from the agent
+├── sample_results/         # Example outputs from the agent (60+ ML solutions)
 ├── tests/                  # Unit tests directory
 │   ├── __init__.py
 │   ├── test_benchmark_backends.py
@@ -32,6 +49,8 @@ aideml/
 │   ├── test_mcp_integration.py
 │   ├── test_performance_monitor.py
 │   └── test_specialized_prompts.py
+├── LICENSE                 # Project license file
+├── README.md               # Project README
 ├── environment.yml         # Conda environment specification
 ├── requirements.txt        # Python dependencies
 ├── run_aide.py             # Primary CLI entry point
@@ -166,7 +185,26 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-082418.md` for the latest implementation status.
+
+**Latest Enhancements (2025-01-20):**
+- ✅ Improved Token Counting: More accurate token estimation for Claude models
+  - Character-based estimation (3.7 chars/token average for Claude)
+  - Accounts for Claude's higher token generation vs GPT models
+  - Special character and formatting adjustments
+  - Replaces basic word count method (word * 1.3)
+- ✅ Full Async Support: Native async/await support for Claude Code backend
+  - `query_async()` function for async contexts
+  - Better event loop handling in sync version
+  - Support for concurrent async queries
+  - Proper cleanup of resources in async mode
+- ✅ Advanced MCP Features: Enhanced Model Context Protocol capabilities
+  - Advanced MCP server (`mcp_server_advanced.py`) with HTTP mode support
+  - Function parameter validation with JSON schema
+  - Async handler support for MCP functions
+  - Server statistics and monitoring
+  - Middleware support for request/response processing
+  - Multi-function registration and management
+
 
 ## Using the New Features
 
@@ -228,6 +266,45 @@ python run_aide.py --task task.md \
     --backend hybrid \
     --backend-opt agent.hybrid.code_backend=claude_code \
     --backend-opt agent.claude_code.use_mcp=true
+
+# Advanced MCP with HTTP mode
+python run_aide.py --task aide/example_tasks/house_prices.md \
+    --backend claude_code \
+    --backend-opt use_mcp=true \
+    --backend-opt use_advanced_mcp=true \
+    --backend-opt mcp_http_mode=true \
+    --backend-opt mcp_http_port=8080
+
+# Advanced MCP with stdio mode (enhanced features)
+python run_aide.py --task aide/example_tasks/bitcoin_price.md \
+    --backend claude_code \
+    --backend-opt use_mcp=true \
+    --backend-opt use_advanced_mcp=true
+```
+
+**Async Support Usage:**
+```python
+# Using async support in custom code
+import asyncio
+from aide.backend.backend_claude_code import query_async
+
+async def main():
+    # Run multiple queries concurrently
+    tasks = []
+    for i in range(3):
+        task = query_async(
+            system_message="You are a helpful assistant",
+            user_message=f"Task {i}: Generate a function",
+            model="claude-opus-4"
+        )
+        tasks.append(task)
+    
+    results = await asyncio.gather(*tasks)
+    for result in results:
+        output, req_time, in_tokens, out_tokens, info = result
+        print(f"Completed in {req_time:.2f}s with ~{in_tokens + out_tokens} tokens")
+
+asyncio.run(main())
 ```
 
 ## MCP Integration Details
@@ -238,11 +315,21 @@ The MCP (Model Context Protocol) integration enhances Claude Code's function cal
 
 2. **MCP Tool Naming**: Functions are exposed with the naming convention `mcp__aide__call_<function_name>`, following MCP security best practices.
 
-3. **Robust MCP Server**: Enhanced MCP server implementation (`aide/backend/mcp_server.py`) with:
-   - Proper JSON-RPC error handling with standard error codes
-   - Robust stdio mode communication
-   - Graceful error recovery and logging
-   - Clear documentation of current limitations (stdio only, basic functionality)
+3. **Robust MCP Server**: Enhanced MCP server implementation with two versions:
+   - **Basic Server** (`aide/backend/mcp_server.py`):
+     - Proper JSON-RPC error handling with standard error codes
+     - Robust stdio mode communication
+     - Graceful error recovery and logging
+     - Single function support
+   - **Advanced Server** (`aide/backend/mcp_server_advanced.py`):
+     - All basic server features plus:
+     - HTTP mode support (in addition to stdio)
+     - Multiple function registration and management
+     - Function parameter validation with JSON schema
+     - Async handler support
+     - Server statistics and monitoring
+     - Middleware support for request/response processing
+     - Health check and stats endpoints (HTTP mode)
 
 4. **Improved Function Extraction**: Refactored function call extraction with prioritized strategies:
    - Primary: MCP tool call extraction from messages
