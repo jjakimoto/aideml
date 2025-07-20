@@ -1,0 +1,1278 @@
+arXiv:2507.02554v1  [cs.AI]  3 Jul 2025
+AI Research Agents for Machine Learning: Search,
+Exploration, and Generalization in MLE-bench
+Edan Toledo1,2,∗,Karen Hambardzumyan1,2,∗,Martin Josifoski1,∗,Rishi Hazra3,†,Nicolas Baldwin1,
+Alexis Audran-Reiss1,Michael Kuchnik1,Despoina Magka1,Minqi Jiang1,Alisia Maria Lupidi1,Andrei
+Lupu1,Roberta Raileanu1,Kelvin Niu1,Tatiana Shavrina1,Jean-Christophe Gagnon-Audet1,Michael
+Shvartsman1,Shagun Sodhani1,Alexander H. Miller1,Abhishek Charnalia1,Derek Dunfield1,Carole -Jean
+Wu1,Pontus Stenetorp2,Nicola Cancedda1,Jakob Nicolaus Foerster1,Yoram Bachrach1
+1FAIR at Meta,2University College London,3Örebro University
+∗Equal contribution (author order determined by a game of UNO) ,†Work done while at Meta
+AI research agents are demonstrating great potential to accelerate scientific progress by automating
+the design, implementation, and training of machine learning models. We focus on methods for
+improving agents’ performance on MLE-bench, a challenging benchmark where agents compete in
+Kaggle competitions to solve real-world machine learning problems. We formalize AI research agents
+as search policies that navigate a space of candidate solutions, iteratively modifying them using
+operators. By designing and systematically varying different operator sets and search policies (Greedy,
+MCTS, Evolutionary), we show that their interplay is critical for achieving high performance. Our
+best pairing of search strategy and operator set achieves a state-of-the-art result on MLE-bench lite,
+increasing the success rate of achieving a Kaggle medal from 39.6 % to 47.7 %. Our investigation
+underscores the importance of jointly considering the search strategy, operator design, and evaluation
+methodology in advancing automated machine learning.
+Date:July 4, 2025
+Correspondence: Edan Toledo at edantoledo@meta.com , Karen Hambardzumyan at mahnerak@meta.com ,
+Martin Josifoski at martinjosifoski@meta.com , Yoram Bachrach at yorambac@meta.com
+Code: https://github.com/facebookresearch/aira-dojo
+1 Introduction
+Any Medal0%10%20%30%40%50%Medal Rate35.2345.91
+39.77 39.5542.73 43.6445.4547.73 47.05 47.27[OAI] AIDEGreedy o1-preview
+[DOJO] AIDE*
+Greedy o1-preview
+[DOJO] AIDEGreedy R1
+[DOJO] AIDEGreedy o3AIRAEvo R1
+AIRAEvo o3
+AIRAGreedy R1AIRAGreedy o3
+AIRAMCTS R1
+AIRAMCTS o3
+Figure 1 AIRA agents use the AIRA-dojo environment, AIRA
+operators, and search policies to achieve state-of-the-art perfor-
+mance on MLE-Bench Lite. Operating in AIRA-dojo improves
+the performance of AIDE1—the previous state-of-the-art
+from Chan et al. (2025). Enhanced operators lead to an
+improvementfrom AIDEgreedy toAIRAgreedy . Explor-
+ing the space of search policies can yield further performance
+gains, only when these constraints are addressed.Science is based on searching the open-ended space
+of hypotheses and testingthem in a controlled ex-
+periment (Langley et al., 1987). Recent break-
+throughs have resulted in artificial intelligence (AI)
+agents that offer great potential to automate the
+scientific discovery process (Yamada et al., 2025;
+Swanson et al., 2024; Boiko et al., 2023). A key
+obstacle to improving research agents is that their
+designs entangle several factors for performance,
+making it difficult to pinpoint sources of improve-
+ment via controlled experiments at scale. These
+factors span algorithm design ,concrete implemen-
+tation, andability to leverage compute , as perfor-
+mance gains accrue only if no layer in the stack
+bottlenecks the benefits from additional compute
+resources (Fig. 7). This challenge is exemplified
+in MLE-bench (Chan et al., 2025), a benchmark
+where AI agents compete in Kaggle competitions
+1o1-preview is deprecated.
+1(1) 
+Select Node(s)(3)
+EvaluationSearch
+Code1
+2 3 4
+5
+61
+2 3 4
+5
+671
+2 3 4
+5
+6Operators
+...Draft
+Debug
+Improve
+Score
+Invalid
+Low
+High 
+State(2) 
+Select & Apply
+OperatorRepeat
+1
+2 3 4
+5
+67Figure 2 Overview of AIRA. Given a problem specification, AIRA maintains a search graph whose nodes are (partial)
+solutions. At each iteration, the agent (1) selects nodes via a selection policy , (2) picks an operator via an operator
+policyand applies this operator to the node, and (3) scores the resulting solution via a fitness function . Here, a greedy
+node-selection strategy applies the improve operator to the highest-scoring node.
+to solve real-world machine learning (ML) problems. Notably, the state-of-the-art approach AIDE (Jiang et al.,
+2025) does not fully disentangle these performance factors, providing limited insight into which components
+primarily drive the agent’s performance and where improvements are needed.
+We start by formalizing the design of AI research agents as a search algorithm composed of two components : The
+first one is the search policy which is used to navigate the space of candidate solutions, and the second is the
+operators which iteratively modifies existing solutions to generate new candidate solutions. In this framework
+(Fig. 2), AIDE is represented as a greedy search algorithm that, at each step, applies one of its code operators
+(i.e.,Draft,Debug,Improve ) to the current best solution. This allows us to disentangle the effect of the
+searchfrom that of the operators .
+To assess alternative search algorithms, we develop sophisticated agents performing Evolutionary and Monte
+Carlo Tree Search (MCTS) (De Jong, 2017; Kocsis and Szepesvári, 2006). We empirically show that AIDE’s
+operators, rather than the search algorithm, are a bottleneck to better performance.
+Based on these findings, we design an improved set of operators and evaluate them when paired with the
+above-mentioned search algorithms. Our best-performing agent achieves state-of-the-art results on MLE-bench
+lite, increasing the rate of achieving a Kaggle medal from 39.6 % to 47.7 %.
+Additionally, we investigate how the generalization gap—the difference between validation and test scores—affects
+the agents’ performance . In ML engineering tasks, as in many real-world use cases, an agent can access only
+proxy metrics (e.g. validation loss) to guide the search process, while the final solution is evaluated on a
+held-out test set. Therefore, a gap between the expected (validation) and actual (test) loss, could potentially
+mislead the search process. Indeed, we find systematic overfitting: selecting the final solution in a search
+graph by its test—rather than validation—score, would increase the medal rate by 9 to 13 % (absolute scale),
+depending on the search algorithm. These findings highlight the importance of rigorous evaluation protocols
+during search and regularization for robust and scalable scientific discovery.
+Finally, to conduct experiments, we develop AIResearch Agent dojo (AIRA-dojo), a framework that provides
+a scalable and customizable environment for AI research agents . First, AIRA-dojo exposes a robust and
+flexible interface to compute resources, which is essential for building effective agents. The baseline, AIDE,
+2implemented in AIRA-dojo achieves a performance increase of 10.68 % (absolute scale) over the reported
+results (Chan et al., 2025). Second, AIRA-dojo enables users to experiment with custom operators, search
+policies, evaluation methods, and tasks within a comparable setup. This facilitates a rigorous scientific study
+of AI research automation.
+2 Research Agents as Search Algorithms
+AI research agents typically approach machine learning problems by generating artifacts – codebases designed
+to solve a given task. Executing these artifacts yields trained models, which are then evaluated against a
+chosen performance metric. The agent iteratively refines its artifacts to improve performance on this metric.
+Previous research indicates that LLMs alone are insufficient to effectively solve such open-ended tasks (Nathani
+et al., 2025). In particular, LLM performance significantly improves when augmented with external tools (Qin
+et al., 2024), execution feedback (Gehring et al., 2025), and solutions addressing context limitations. Therefore,
+developing high-quality models typically involves iterative experimentation, where insights from prior experi-
+ments inform subsequent refinements. Recent advancements by Jiang et al. (2025) demonstrate state-of-the-art
+performance by conceptualizing this iterative experimentation as a tree search over potential solutions.
+In this section, we formalize and generalize this perspective by modeling research agents as graph-based
+search algorithms. The proposed framework allows systematic exploration of alternative agent design choices,
+providing insights into how different algorithms affect the exploration-exploitation trade-off—a fundamental
+aspect of search (Kocsis and Szepesvári, 2006; Črepinšek et al., 2013).
+2.1 Graph–based Search Framework
+We consider an agent that operates by searching a directed graph Gt= (Vt, Et)that evolves over multiple
+iterations t= 0,1, . . ., where each node v∈Vt⊆ Srepresents an artifact belonging to the set of all possible
+artifacts S, while each directed edge (vi, vj)∈Etrepresents a transformation from vitovj. The root v0is the
+initial artifact that can represent an empty or starting artifact.
+Definition 1 (Components of the Search Algorithm). A graph-based search algorithm is specified by the tuple 
+F, πsel,O, πop, τ
+:
+•Fitness Function. F:S → [0; 1]is a function that estimates the value or quality of a node v∈Vt. Since
+true fitness is typically not available, Fis often a proxy measure of the value of the node.
+•Selection Policy. πsel: 2Vt→2Vtchooses a subset of nodes Ut⊆Vton which to operate, typically guided
+by a heuristic function h:Vt→R, which assigns a scalar estimate to each node. The heuristic may be
+derived directly from the fitness function F, such as the upper confidence bounds for trees (UCT) used in
+MCTS (Kocsis and Szepesvári, 2006), or other custom heuristics tailored to the domain (Crawford and
+Auton, 1996; Hooker and Vinay, 1995).
+•Operator Set. O={oℓ: 2S→ S}L
+ℓ=1comprises Ltransformation functions that propose new artifacts
+v=oℓ({vk}m
+k=1)∈ Sfrom one or more selected artifacts. In AIDE, examples include draft,debug, and
+improve instantiated as prompt-based instructions to an LLM. Composite operators (e.g. the result of
+applying a sequence of base operators) can also be used.
+•Operator Policy. πop:O ×Ut→ Odecides which operator to apply to the current node selection.
+•Termination Rule. τhalts the search when a computational budget is exhausted, progress stalls, or a fitness
+threshold is reached.
+At each iteration, the agent selects existing promising artifacts, applies transformation operators, and updates
+the search graph, propelling the discovery process forward. We discuss specific instantiations of search
+algorithms in Sections 2.3, 4.2. In all our instantiations: 1the termination criterion is set as the wall-clock
+time or the maximum number of artifacts , whichever happens first; 2the fitness function Fis defined for
+each node by the operator that generates or modifies it (i.e., Fis not global );3all operators are LLM-driven
+except for the Memory operator, which is defined by hand.
+32.2 Operators
+We define operators as high-level functions that take in existing artifacts and produce new ones. These can
+range from simple rule-based parsers to LLM calls using prompting techniques (Wei et al., 2022; Yao et al.,
+2023b) or more complex agents like Cursor (Inc., 2025).
+This broad definition enables a unified comparison across search methods. A search algorithm can be
+instantiated with any mix of LLM-based, tool-based, or nested search operators.
+Building on the demonstrated effectiveness of AIDE (Jiang et al., 2025), we adopt a similar operator set
+as introduced in their framework, consisting of the following: 1Draftinitializes the search process by
+generating an initial population of candidate artifacts. 2Debugattempts to identify and correct errors in
+invalid artifacts. 3Improve refines valid artifacts to enhance their performance according to the evaluation
+criteria. 4Memory chooses how and where information from past artifacts is used in subsequent operations.
+5Furthermore, we introduce Crossover which recombines useful elements from two artifacts to create a
+new candidate.
+Section 3 contains further implementation details.
+2.3 Re-casting AIDE in our Notation
+AIDE(Jiang et al., 2025) is an LLM-driven agent that frames problem-solving as a tree-search over Python
+scripts. In the tuple (F, πsel,O, πop, τ)from Section 2.1 its components are:
+Fitness & selection ( F, πsel).For each node v, fitness is the mean 5-fold cross-validation (CV) score F(v)∈[0,1]2.
+The selection policy is greedy with respect to F. This means at iteration tthe agent selects and operates on
+v⋆= arg max
+v∈VtF(v),
+but, with probability εbug3, may instead revisit a buggynode ( F= 0) to aid recovery and maintain diversity.
+Operator set OAIDE.The agent exposes three LLM operators { Draft,Improve ,Debug} and one handcrafted
+operator Memory or as defined by Jiang et al. (2025)—the Summarization operator. The operators are
+designed to output the following: Draft(3–5-sentence plan + fenced script that trains, evaluates, and writes
+submission.csv );Debug(short diagnosis and repaired script given a traceback); Improve (Creating exactly
+one measurable change — feature, architecture, schedule, etc. — in plan + code form); Memory (running
+summary of all previous designs, scores, and notes that is appended to every Draft/Improve prompt).
+Operator policy πop.(a)Seeding: invoke Draftexactly ndtimes from the root v0; (b)Logging: after every
+DraftorImprove , call Memory ; (c)Main loop: for the node chosen by πselapply Improve if it is valid
+and at least nddrafts exist, if less than nddraft nodes exist, Draftis called, otherwise apply Debug.
+This combination of πsel, πop, andOAIDEdefines the baseline agent we denote AIDEgreedy (also summarized
+in Appendix B). When the agent uses an alternative search policy while keeping OAIDEunchanged, we write
+AIDE search_policy to identify change. For example, AIDEmcts uses the AIDE operator set and MCTS as the
+search policy.
+3 Experiment Design
+3.1 AIRA-dojo
+An agent’s environment greatly influences its performance. To systematically study the space of agentic policies
+(see Fig. 7), we introduce the AI Research Agent (AIRA) dojo—a scalable and customizable framework for AI
+research agents. AIRA-dojo provides the environment in which agents operate, along with abstractions for
+operators andpoliciesas described in Section 2, and tasksthat define evaluation criteria for agent performance.
+Using these abstractions, we implement and evaluate four search policies: MCTS, Evolutionary, Greedy, and
+2In practice, CV scores are not necessarily bounded between zero and one; for example, RMSE is an unbounded metric.
+3εbugis set to 1.0 so as to mimic the hyperparameters used in MLE-bench by Chan et al. (2025).
+4our own implementation of AIDE. We hope that AIRA-dojo’s scalability and customizability, together with
+the provided agent and task implementations, will support and advance future research in the community.
+The infrastructure design of AIRA-dojo was informed by several reliability and performance constraints, as
+discussed in more detail in Appendix F.
+3.2 Environment
+The environment defines the context in which agents operate.
+Action Space. We use Jupyter notebooks to execute code from the agents. With this interface, agents can
+execute arbitrary Python code, perform file reads and writes, and even use the shell via Jupyter magic
+commands. The environment captures and returns the status, standard outputs, tracebacks for debugging,
+and the code block execution time to the agents.
+Isolation. The environment enforces program-level constraints, such as total runtime limit, GPU and CPU
+usage, memory, and storage, using Apptainer containers (Kurtzer et al., 2021). This ensures complete
+isolation from host systems, preventing agents from affecting the host environment or other agents, and
+mitigates risks from unintended actions or failures, such as data leakage or interference with other processes.
+Furthermore, agents possess root-like privileges within their isolated containers, granting them full control
+over their environment. This allows them not only to configure their environments using standard package
+management tools such as pip,conda, but even apt-get install .
+Superimage. Superimage , a container image, provides a base set of tools required for common ML tasks.
+This image includes pre-configured CUDA support, key deep learning frameworks such as PyTorch and
+TensorFlow , and essential data science libraries. Each coding session starts from the original Superimage
+state and can diverge based on the agent’s actions while not affecting the state of the other agents.
+Together, these design choices create a stable and robust testbed that eliminates confounders at both the
+system and implementation levels. This reliability enables reproducible benchmarking and facilitates the
+development of long-running agentic systems across thousands of parallel runs and diverse tasks.
+3.3 MLE-bench
+MLE-bench (Chan et al., 2025) comprises of 75 tasks sourced from Kaggle, designed to assess the capabilities
+of agents in machine learning engineering. In our experiments, we evaluate on MLE-bench lite—a curated
+subset of 22 tasks selected from the full benchmark.
+Our experiments showed that existing methods exhibit high variance in this benchmark (see Appendix H).
+Focusing on a smaller subset of tasks allows us to allocate more seeds per task and increase our confidence in
+our results.
+In line with the benchmark guidelines, we assess each agent’s performance using the Medal Success Rate .
+Specifically, for each task, agents earn a bronze, silver, or gold medal according to task-specific percentile
+thresholds. We report the percentage of attempts in which an agent secures a medal.
+3.4 Experimental Details
+Environment. Each candidate agent is launched in a freshly initialized, sandboxed process in AIRA-dojo.
+This guarantees that file systems and environment variables are isolated across evaluations, and there is no
+cross-agent interference. Every sandbox is provisioned with a fixed hardware quota: 1 dedicated H200 GPU,
+24 logical CPU cores, 100 GB of RAM, and 1 TB of additional scratch storage. Internet access is permitted
+solely for fetching third-party packages and model checkpoints.
+Time Constraints. In line with MLE-bench, the agent is allowed a 24-hour wall-clock window. Within this
+period, each agent has a maximum runtime of 4 hours per code execution. We chose to reduce this from the
+9-hour limit used in MLE-bench after preliminary experiments showed no difference in performance and a
+higher average number of valid nodes in the search trees.
+5LLMs.We conducted all the experiments with the full-sized DeepSeek R1 (DeepSeek-AI, 2025) model, with
+128K-token context window to ensure input coverage without truncation. Due to wall-clock constraints, this
+choice was guided by both the model’s capabilities and applicable rate limits. In particular, we selected
+DeepSeek R1 as the most capable open-source model available, which allowed us to self-host inference servers
+and maintain high experimental throughput without encountering rate limits. For the main results, we
+also evaluated o3(OpenAI, 2024), one of the most capable closed-source models. To ensure experiment
+validity and avoid hitting rate limits, we limited the number of parallel runs when experimenting with o3. We
+always use GPT-4o (OpenAI, 2024) with Structured Outputs to parse code execution outputs—extracting
+run success, summary text, and validation metric. For the figures, we take [OAI] AIDE o1 artifacts from the
+MLE-bench Chan et al. (2025) GitHub repository. To enable a direct comparison with their results, we also
+evaluated o1-preview . However, we were only able to complete experiments for one agent before the model
+was deprecated.
+See Appendix D for further implementation details.
+4 AIRA
+4.1 Operators OAIRA
+As part of AIRA-dojo, we propose a new operator set based on OAIDE, which we refer to as OAIRA. In
+designing OAIRA, we focus on maintaining a cleaner context through better-scoped memory, and encouraging
+structured reasoning and strategic diversity in ideation. The key differences between the two sets of operators
+are:
+1Prompt-adaptive complexity. We introduce a dynamic complexity cue within the system prompt in order
+to guide the complexity of artifacts generated by the draftandimprove operators. The complexity is
+determined by the number of children, nc, of the node being processed:
+complexity( nc) =“minimal” ifnc<2,“moderate” if 2≤nc<4,“advanced” ifnc≥5
+For the draftoperator, this cue influences the complexity of the generated ideas. For the improve
+operator, it guides the complexity of the enhancements. This dynamic signal helps prevent premature
+over-engineering by ensuring the agent provides simple solutions when appropriate, while encouraging
+more thorough exploration when more advanced solutions may be necessary.
+2Scoped memory. We modify the memory operator to extract different types of memories depending on
+the operator used. Specifically, for draftandimprove , it retrieves only sibling memories —the children
+of the artifact the agent is applying the operator to—thereby promoting diversity. This scoped memory
+approach prevents overloading the context and reduces behavior indicative of mode collapse. Conversely,
+fordebug, it retrieves the entire ancestral memory of the artifact’s debug chain, enabling review of prior
+fix attempts and avoiding “undo–redo” oscillations.
+3Think Tokens. For reasoning models, we use the operators’ system prompts to explicitly encourage them to
+use thinking tokens for structured reasoning and reflection. These thoughts are stripped from the final
+answer—remaining invisible to other operators (such as memory). On average, we observe a 2×increase
+in completion tokens generated by the AIRA operator set (see Appendix E).
+4.2 Agents
+In this section, we introduce three agents that combine the operators OAIRA—proposed in Section 4.1—with
+distinct search policies (see Appendix G for the rationale behind their selection). Each agent uses the same
+proxy–fitness function F(5-fold CV) and the same termination criterion τ(based on wall-clock time or artifact
+cap).
+6AIDE MCTS EVO0%10%20%30%40%Medal Rate35.2338.1839.7736.36 35.45 35.00 34.5539.61[OAI] AIDEGreedy o1-preview
+[DOJO] AIDEGreedy No Mem. R1[DOJO] AIDEGreedy R1
+AIDEMCTS(c=0.0) R1AIDEMCTS(c=0.25) R1
+AIDEMCTS(c=0.50) R1AIDEMCTS(c=0.75) R1
+AIDEEVO R1Figure 3 Searching with AIDE’s operators. When limited to AIDE’s operator set OAIDE, agents using more advances search
+policies (e.g., MCTS, evolutionary algorithms) gain no advantage, underscoring the operator set as the bottleneck.
+AIRAgreedy . This agent employs greedy search (Section 2.3) using the OAIRAoperator set. Any performance
+improvement of AIRAgreedy overAIDEgreedy directly reflects the benefit of the new operators, since the
+onlydifference between the two is the operator set.
+AIRAmcts . This agent uses Monte-Carlo Tree Search (MCTS) Kocsis and Szepesvári (2006) with OAIRA
+operator set. Our implementation of MCTS follows the canonical loop (selection, expansion, evaluation, and
+backup), but omits simulated roll -outs: the leaf value of expanded nodes is given directly by the proxy fitness
+function F:
+•Selection. From the root node v0, descend by selecting the node with the highest UCT score πsel(v) =
+arg max v∈VthUCT(v)where hUCT(v|u) =Q(v) +cp
+logN(u)/(N(v) +ε), where N(·)andQ(·)are the
+visit count and running mean fitness. Here, uis the parent of v.
+•Expansion. Only leaves are expanded. The chosen operator from OAIRAis applied ntimes, creating n
+children. Buggy children enter an automatic Debugloop until fixed or the budget expires.
+•Evaluation & backup. The leaf fitness is F(vℓ)is back-propagated to ancestors with the standard incremental
+update of (N, Q ).
+AIRAevo. The evolutionary agent keeps a population Vtof fixed size nand repeats:
+•Parent selection: Select individuals with probability πsel(v) =F(v)/P
+u∈VtF(u).
+•Reproduction: With a fixed probability, apply Improve ; otherwise, apply Crossover . Parents that are
+buggy are first processed by Debuguntil they are either fixed or the debug attempt limit is reached.
+•Replacement: Offspring replace the least-fit individuals in Vt.
+For both AIRAmcts andAIRAevo , we normalize all fitness values using the minimum and maximum
+values observed during the search process. This normalization ensures a consistent set of hyperparameters
+throughout the search. To select the final solution, the AIRA and AIDE agents return the one with the
+highest validation score.
+5 Experiments and Results
+5.1 Analyzing the Performance of the Current SoTA
+The most effective search algorithms strike a balance between exploration and exploitation. In this section,
+we analyze the exploration–exploitation trade-offs of AIDE, the current state-of-the-art method, and then
+investigate how additional computation time increases its performance.
+The three main factors that influence this balance are memory, the operator set, and the selection policy.
+Memory structures prior knowledge—storing promising solutions and tracking which regions of the solution
+70.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal Rate[DOJO] AIDEGreedy o3 (Validation)
+[DOJO] AIDEGreedy o3 (Test)
+[DOJO] AIDEGreedy R1 (Validation)
+[DOJO] AIDEGreedy R1 (Test)
+0 5 10 15 20
+Wall clock time (hrs)
+0%10%20%30%40%50%Medal Rate [DOJO] AIDEGreedy R1
+AIRAEvo R1
+AIRAGreedy R1
+AIRAMCTS R1[DOJO] AIDEGreedy o3
+AIRAEvo o3
+AIRAGreedy o3
+AIRAMCTS o3Figure 4 a) AIDE’s performance profile over 24-hour search window. Perceived vs. actual medal rate over 24 hours of
+AIDEgreedy . The curves show the mean validation (agent-reported) and held-out test medal rates across 20 seeds
+for all tasks. The widening band illustrates the generalization gap, revealing how apparent gains on the validation set
+can mask overfitting and ultimately undermine the search process. b) Performance profiles of all agents after 24-hour
+search window.
+space have been sampled—to inform subsequent decisions. This information can bias the search toward
+exploration by encouraging diversity or toward exploitation by discouraging it. Operators then apply controlled
+transformations to existing solutions: for instance, random mutations introduce diversity, targeted refinements
+exploit known strengths, and recombinations merge features from multiple candidates. Finally, the selection
+policybalances exploiting high-quality regions of the solution space with exploring less-tested areas by
+determining how to allocate computational resources. A non-greedy selection policy, such as in MCTS,
+periodically directs resources toward branches that may appear suboptimal, with the goal of uncovering (and
+subsequently exploiting) better solutions.
+What is the effect of memory? To quantify the impact of the memory operator, we conduct a controlled
+ablation comparing the performance of AIDE with and without the memory operator enabled. As shown in
+Fig. 3, both variants achieve nearly identical mean medal rates. This suggests that memory is not a driving
+factor behind AIDE’s strong performance.
+What is the effect of exploration at the search level with AIDE’s operators? AIDE uses a selection policy that
+does not explore and always greedily selects the most promising candidate. To evaluate the impact of the
+search policy as a modulator of the exploration-exploitation tradeoff when searching using AIDE’s operators,
+we replaced the operators in AIRAmcts with that of AIDE and varied the UCT exploration constant
+cUCT∈ {0,0.25,0.75}. The cUCT, which modulates the degree of exploration in MCTS, allows us to isolate
+the effect of search-level exploration on downstream performance. The resulting medal rates (Fig. 3) showed
+only marginal differences across all cUCTvalues, supporting our hypothesis that search-level exploration is
+constrained by the interaction between the operator set and the search policy. We observe the same limitation
+when performing the same operator replacement in AIRAevo .
+What is the performance profile of AIDE? To examine the improvement gains over time, we plot AIDE’s anytime
+performance, which is the average medal rate achieved by the agent if the search was to terminate at time t.
+The results, summarized in Fig. 4a, suggest that while the agent’s perceived performance (validation score)
+continues to improve over time, the true test performance plateaus, even slightly decreases over time. These
+findings suggest that overfitting might be a fundamental limitation to the agent’s performance. We further
+investigate this in Section 5.3.
+8Any Medal  Silver
+ Gold0%10%20%30%40%50%Medal Rate
+35.23
+30.23
+20.0045.91
+40.45
+27.2739.77
+32.05
+23.4139.55
+34.09
+26.8242.73
+34.77
+24.5543.64
+35.00
+26.3645.45
+36.82
+27.0547.73
+42.73
+28.6447.05
+36.36
+25.6847.27
+42.27
+30.91[OAI] AIDEGreedy o1-preview
+[DOJO] AIDE*
+Greedy o1-preview[DOJO] AIDEGreedy R1
+[DOJO] AIDEGreedy o3AIRAEvo R1
+AIRAEvo o3AIRAGreedy R1
+AIRAGreedy o3AIRAMCTS R1
+AIRAMCTS o3Figure 5 Medal rates on MLE-bench Lite. Performance is shown for three medal categories: any medal, silver medals and
+above, and gold medals only. Error bars represent 95% confidence intervals computed using stratified bootstrapping.
+5.2 AIRA Beyond Greedy
+Based on the observation that search policies yield no performance gain with AIDE’s operators, this section is
+divided into two parts: 1assessing the effectiveness of our improved operators (see Section 4.1), 2examining
+their interplay with the more advanced search policies. The results are summarized in Fig. 5, with a detailed
+breakdown of performance for each task in Appendix J.
+Evaluating the environment. But first, we highlight the benefits from AIRA-dojo. Specifically, our baseline
+agent implementation, AIDEgreedy o1-preview , operating in the AIRA-dojo environment, improves the
+medal rate from 35.2 % to 45.9 % compared to the reported results (Chan et al., 2025). This corresponds
+to state-of-the-art performance with a relative improvement of 30 % in medal rate. It is notable that
+AIDEgreedy o1-preview , outperforms both AIDEgreedy R1andAIDEgreedy o3, despite o3being the
+newest model in the series. While evaluating all agents with o1-preview would have been informative, we
+were only able to complete the AIDEgreedy experiment before the model was discontinued.
+Evaluating the operator sets. AIDEgreedy andAIRAgreedy employ the same search policy but differ
+in their operator sets. Comparing their performance isolates the effect of the operators. AIRAgreedy
+outperforms AIDEgreedy (45.5 % vs. 39.8 %), representing a 14 % relative improvement and underscoring
+the importance of operators for performance.
+Evaluating search policies. Equipped with an improved set of operators, we now explore whether combining
+them with advanced search methods can further enhance performance. The results (Fig. 5) show that for R1,
+AIRAmcts achieves the best performance, achieving state-of-the-art performance on MLE-bench Lite with
+an average medal rate of 47%. Both AIRAmcts andAIRAgreedy achieve silver-or-above medal rates ( ≈
+36.5%), outperforming the baseline by 4.5 absolute points. In terms of gold medals, AIRAgreedy performs
+best, reaching 27%. For o3,AIRAmcts andAIRAgreedy perform comparably in terms of any medal and
+silver-or-above medal rates, while AIRAmcts outperforms AIRAgreedy in gold medals by 2.2 percentage
+points. Although agents using R1ando3achieve similar overall medal rates, those using o3perform better
+when considering gold and silver-or-above medal rates. Specifically, AIRAmcts increases the gold medal rate
+from 25.68 % with R1to 30.91 % with o3, a relative increase of 20 %.
+Collectively, what stands out is that all search policies combined with AIRA operators outperform AIDE-
+greedy. Furthermore, the rankings between agents using the AIRA operators with different search strategies
+differs significantly from that observed in Section 5.1.
+Finally, Fig. 4b shows the anytime performance of each agent over the 24-hour window defined by MLE-bench.
+For conciseness, we will focus our discussion on performance with R1, as the results with o3follow a similar
+9AIDEgreedyAIRAEVOAIRAGreedyAIRAMCTS0%20%40%60%Medal Rate 39.851.4
+43.056.1
+45.554.5
+47.056.6
+56.4 55.060.556.4Intermediate/Final Node Selection
+Val/Val Val/T est T est/T est
+2 4 6 8
+k30%35%40%45%50%55%Medal Rate
+AIDEGreedy
+2 4 6 8
+k
+AIRAMCTS
+2 4 6 8
+k
+AIRAGreedy
+2 4 6 8
+k
+AIRAEvo
+Random-k
+T op-k
+OracleFigure 6 a) The validation–test metric mismatch. Results shown are for agents using R1. Bars depict the absolute
+performance gap between three configurations: (i) using the validation metric for both intermediate (search) and final
+(submission) node selection; (ii) using the validation metric only for search and the test metric for selection; and (iii)
+using the test metric for both search and selection. b) Bridging the validation–test gap. Medal rate achieved by two
+final node selection strategies as a function of k: (i) randomly sampling knodes and reporting the highest test score
+among them; (ii) selecting the top knodes by validation score and reporting the highest test score among those. As k
+increases, the validation-based strategy closes the gap to the upper-bound performance given by the best test score
+over the entire search graph.
+pattern. We observe that the rankings between agents change over time. For example, at the 3-hour mark,
+the performance gap between AIRAgreedy andAIRAmcts is notable. This gap narrows by the 10-hour
+mark, where all agents perform similarly. Meaningful divergence in performance appears only after 19 hours.
+These trends reflect the interaction between rankings and the resources provided, as shown in Figure 7.
+We further examine the effect of extended compute time on performance by running experiments for up to 5
+days (Appendix C), showing that our agents continue to improve beyond the 24-hour period. To illustrate
+differences in search behavior, Appendix K presents representative search trees from our experiments for each
+agent, which may help clarify the strengths and weaknesses of each method.
+5.3 The Generalization Gap: Searching with a Proxy Evaluation
+Agents steer their search using the validation scores of candidate solutions, but ultimately, performance is
+measured on a held-out test set. Due to finite sample effects, the validation score is not perfectly predictive of
+performance on the test set—a discrepancy known as the generalization gap .
+In this section, we measure the impact of this generalization gap on the agents’ performance. We further
+quantify whether this impact is more detrimental during the intermediate node selection in the search process
+or the final (submitted) node selection.
+How large is the impact of the generalization gap on performance? We begin by comparing two extremes:
+Val/Val —bothintermediateandfinalnodeselectionusethevalidationscore(standardpractice); Test/Test —
+an oracle baseline using the true test score at both stages. As shown in Fig. 6a, searching based on the test
+score instead of the validation score improves performance by 9.4 % and 12.4 % for AIRAmcts andAIRAevo .
+The gap is even higher for the agents using a greedy search policy, reaching 15 % for AIRAgreedy and
+16.6 % for AIDEgreedy . For the rest of this section, we investigate the nature of this gap in performance
+and how to close it.
+How much of the gap can be attributed to final node selection? To answer this question, we consider the following
+two settings: Val/Val ; and Val/Test —the intermediate node selection uses the validation score, while the
+final node selection is done based on the test scores. The results (Fig. 6a) indicate that by selecting the best
+node in a search graph constructed without privileged access, i.e., based on validation signal, all agents achieve
+a performance boost of 9 to 11.6 absolute points. Crucially, comparing Val/Test withTest/Test shows
+that oracle final-node selection eliminates the gap between the standard ( Val/Val ) and oracle ( Test/Test )
+settings for both AIRAmcts andAIRAevo . Even for the agents implementing the simpler greedy policy,
+selecting the best node in the final search graph closes more than 60 % of the gap. These findings highlight
+robust final-node-selection strategies as a promising path to higher performance.
+Bridging the gap through multiple submissions. A straightforward remedy is to hedge against validation score
+noise by selecting multiple promising nodes. Specifically, among the top- knodes ranked by validation score in
+10the search graph, we report the test score of the best-performing one. As a baseline, we repeat the process for
+a set of random- knodes, and summarize the results in Fig. 6b. We highlight the following observations: 1the
+larger gap between top-k and random-k in agents using non-greedy algorithms, AIRAevo andAIRAmcts ,
+suggest greater diversity in their search graphs; 2with as little as 3 top-k submissions agents achieve an
+additional 10 % of performance; 3the top validation nodes are informative of the best performing nodes.
+6 Related Works
+Scaling Search with LLMs. Integrating search with LLM-based generators has gained traction across domains
+such as coding (Antoniades et al., 2025), math (Yao et al., 2023a), and planning (Hazra et al., 2024; Hao
+et al., 2023). In practice, increased test-time compute through algorithms like best-of- N(Wang et al., 2023),
+beam search (Hazra et al., 2024), MCTS (Antoniades et al., 2025; Hao et al., 2023), and evolutionary
+search (Romera-Paredes et al., 2024; Hazra et al., 2025) often improves performance beyond the architectural
+and size constraints of LLMs (Snell et al., 2024). Our results highlight that these performance gains depend
+critically on the interplay between search components (see Appendix A)—an aspect that prior work has
+largely overlooked.
+Automating ML Engineering and Scientific Discovery. Traditional approaches like AutoML (Feurer et al., 2022;
+Thornton et al., 2013; Olson and Moore, 2019) and Neural Architecture Search (NAS)(Zoph and Le, 2017; Liu
+et al., 2019; Real et al., 2019) automate ML by searching over predefined, expert-designed configuration spaces,
+often via brute-force or heuristic methods (Bergstra and Bengio, 2012; Elsken et al., 2017; Li et al., 2018).
+In contrast, recent advances in LLMs enable more open-ended design. AIDE (Jiang et al., 2025) treats ML
+engineering as LLM-guided code optimization via tree search. AI Scientist v2 (Yamada et al., 2025) extends this
+paradigm, automating the entire research pipeline using agentic LLMs. Similar techniques have been applied to
+software engineering (Antoniades et al., 2025), algorithm and reward design (Romera-Paredes et al., 2024; Lu
+et al., 2024; Faldor et al., 2025; Hazra et al., 2025; DeepSeek-AI, 2025), and even natural sciences (Boiko et al.,
+2023; Swanson et al., 2024). Existing systems often combine search procedures, operators, and evaluation in
+ways that make it challenging to understand which components drive performance improvements. To address
+this, we separate these components and look at how each one—and their interactions—can be optimized
+better. Concurrent work, R&D-Agent (Yang et al., 2025), which addresses the same problem setting, achieved
+impressive results on MLE-Bench. Our results fall within their reported standard deviation. We note that
+their experiments use at most 6 seeds, and as discussed in Appendix H, the limited number of seeds may
+introduce variation in the conclusions. Finally, our approach differs from methods such as Agent K (Grosnit
+et al., 2024), which uses long-term memory across multiple Kaggle competitions. In contrast, we focus on
+addressing each competition independently.
+AI Research Frameworks. Most existing benchmarks for machine learning or research engineering, such as
+MLGym (Nathani et al., 2025), RE-bench (Wijk et al., 2024), and MLAgentBench (Huang et al., 2023),
+come with their own frameworks. Our approach is most similar to Inspect (Institute), a framework which
+provides an abstraction that makes minimal assumptions about the agent and evaluation design, clearly
+separating the two. This flexibility in agent design is essential for enabling rigorous comparisons across a
+wide range of agents—from simple LLM-based agents with tool access to scaffolds combining algorithmic and
+LLM-based components—within the same environment. The environment plays a critical role in performance
+(see Section 5.2). However, unlike Inspect, AIRA-dojo focuses strongly on long-running research tasks, which
+influences our environment design choices. For example, prior work typically uses Docker to containerize
+agents’ workspaces, but Docker is unsupported on most HPC clusters due to its reliance on root privileges
+and lack of seamless integration with common HPC resource managers. This limitation hinders scalability,
+which we address through our Apptainer-based solution (see Section 3.2).
+7 Conclusion
+We conceptualize the design of AI research agents as a combination of two axes: search policy and operators.
+This formulation allowed us to perform a systematic investigation of the interplay between the two, highlighting
+how the operator set can act as a bottleneck to performance improvements. Based on this finding, we designed
+an enhanced operator set and constructed agents that combines these operators with several search strategies:
+Greedy, Monte Carlo Tree Search (MCTS), or Evolutionary Search. Our best-performing agent achieves a
+11new state of the art on MLE-bench, increasing the success rate of winning a Kaggle medal from 39.6 % to
+47.7 %. Further, we analyzed the role of the generalization gap in node evaluation. Our findings indicate
+systematic overfitting : selecting the final solution from the search graph based on its test score instead of its
+validation score would increase the medal rate by 9 to 13 % (absolute scale), depending on the search strategy.
+This highlights that robust final-node selection is a promising avenue for improving performance.
+7.1 Limitations and Future Work
+There are several important dimensions for performance that we leave for future work to explore.
+Agentic operators. Our experiments suggest that the effectiveness of search is heavily dependent on the
+capability of the operators. To manage complexity, in this work we experiment with LLM-based operators.
+However, one could readily use full-fledged agents as operators. For example, a natural extension would be to
+include an ideation agent as an operator (Si et al., 2024), and to replace the implementation and debugging
+operators with a SWE-Agent (Liu et al., 2024; Yang et al., 2024).
+Finetuning. LLMs are critical components of the operators. Future work could investigate supervised
+fine-tuning or reinforcement learning as methods to enhance operator effectiveness.
+Scaling the search. To maintain comparability with MLE-bench, we adopt the benchmark’s time (24-hour limit)
+and compute constraints (1 GPU). However, solving challenging problems likely requires substantially greater
+resources, and evaluating performance under these restrictions provides limited insights (see Appendix C
+for an experiment extended to 120 hours—5 days). Studying the scaling behavior of search policies and
+operators, and developing agents capable of effectively leveraging more computational resources over longer
+time horizons, is an important direction for future research.
+Data contamination. Finally, there is the issue of data contamination. It is possible that our results are
+influenced by the presence of information related to the evaluated Kaggle tasks, or similar tasks, within the
+LLM training data. Creating a continuous stream of fresh and novel tasks remains an important research
+challenge (White et al., 2025).
+12References
+Antonis Antoniades, Albert Örwall, Kexun Zhang, Yuxi Xie, Anirudh Goyal, and William Yang Wang. SWE-search:
+Enhancing software agents with monte carlo tree search and iterative refinement. In The Thirteenth International
+Conference on Learning Representations , 2025. https://openreview.net/forum?id=G7sIFXugTX .
+James Bergstra and Yoshua Bengio. Random search for hyper-parameter optimization. The journal of machine learning
+research, 13(1):281–305, 2012.
+Daniil A. Boiko, Robert MacKnight, Ben Kline, and Gabe Gomes. Autonomous chemical research with large
+language models. Nature, 624(7992):570–578, 2023. ISSN 1476-4687. doi: 10.1038/s41586-023-06792-0. https:
+//doi.org/10.1038/s41586-023-06792-0 .
+Jun Shern Chan, Neil Chowdhury, Oliver Jaffe, James Aung, Dane Sherburn, Evan Mays, Giulio Starace, Kevin Liu,
+Leon Maksin, Tejal Patwardhan, Aleksander Madry, and Lilian Weng. MLE-bench: Evaluating machine learning
+agents on machine learning engineering. In The Thirteenth International Conference on Learning Representations ,
+2025. https://openreview.net/forum?id=6s5uXNWGIh .
+James M Crawford and Larry D Auton. Experimental results on the crossover point in random 3-sat. Artificial
+intelligence , 81(1-2):31–57, 1996.
+Kenneth De Jong. Evolutionary computation: a unified approach. In Proceedings of the Genetic and Evolutionary
+Computation Conference Companion , pages 373–388, 2017.
+DeepSeek-AI. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning, 2025. https:
+//arxiv.org/abs/2501.12948 .
+Thomas Elsken, Jan-Hendrik Metzen, and Frank Hutter. Simple and efficient architecture search for convolutional
+neural networks. arXiv preprint arXiv:1711.04528 , 2017.
+Gemini Team et. al. Gemini: A family of highly capable multimodal models, 2025. https://arxiv.org/abs/2312.11805 .
+Llama Team et. al. The llama 3 herd of models, 2024. https://arxiv.org/abs/2407.21783 .
+Maxence Faldor, Jenny Zhang, Antoine Cully, and Jeff Clune. OMNI-EPIC: Open-endedness via models of human
+notions of interestingness with environments programmed in code. In The Thirteenth International Conference on
+Learning Representations , 2025. https://openreview.net/forum?id=Y1XkzMJpPd .
+Matthias Feurer, Katharina Eggensperger, Stefan Falkner, Marius Lindauer, and Frank Hutter. Auto-sklearn 2.0:
+hands-free automl via meta-learning. J. Mach. Learn. Res. , 23(1), January 2022. ISSN 1532-4435.
+Jonas Gehring, Kunhao Zheng, Jade Copet, Vegard Mella, Quentin Carbonneaux, Taco Cohen, and Gabriel Synnaeve.
+Rlef: Grounding code llms in execution feedback with reinforcement learning, 2025. https://arxiv.org/abs/2410.
+02089.
+Antoine Grosnit, Alexandre Maraval, James Doran, Giuseppe Paolo, Albert Thomas, Refinath Shahul
+Hameed Nabeezath Beevi, Jonas Gonzalez, Khyati Khandelwal, Ignacio Iacobacci, Abdelhakim Benechehab,
+Hamza Cherkaoui, Youssef Attia El-Hili, Kun Shao, Jianye Hao, Jun Yao, Balazs Kegl, Haitham Bou-Ammar,
+and Jun Wang. Large language models orchestrating structured reasoning achieve kaggle grandmaster level, 2024.
+https://arxiv.org/abs/2411.03562 .
+Shibo Hao, Yi Gu, Haodi Ma, Joshua Hong, Zhen Wang, Daisy Wang, and Zhiting Hu. Reasoning with language
+model is planning with world model, December 2023. https://aclanthology.org/2023.emnlp-main.507 .
+Rishi Hazra, Pedro Zuidberg Dos Martires, and Luc De Raedt. Saycanpay: Heuristic planning with large language
+models using learnable domain knowledge. In Proceedings of the AAAI Conference on Artificial Intelligence ,
+volume 38, pages 20123–20133, 2024.
+Rishi Hazra, Alkis Sygkounas, Andreas Persson, Amy Loutfi, and Pedro Zuidberg Dos Martires. REvolve: Reward
+evolution with large language models using human feedback. In The Thirteenth International Conference on Learning
+Representations , 2025. https://openreview.net/forum?id=cJPUpL8mOw .
+John N Hooker and V Vinay. Branching rules for satisfiability. Journal of Automated Reasoning , 15(3):359–383, 1995.
+Qian Huang, Jian Vora, Percy Liang, and Jure Leskovec. Mlagentbench: Evaluating language agents on machine
+learning experimentation. arXiv preprint arXiv:2310.03302 , 2023.
+Anysphere Inc. Cursor: The ai code editor, 2025. https://www.cursor.com/ .
+13UK AI Security Institute. Inspect AI: Framework for Large Language Model Evaluations. https://github.com/
+UKGovernmentBEIS/inspect_ai .
+Zhengyao Jiang, Dominik Schmidt, Dhruv Srikanth, Dixing Xu, Ian Kaplan, Deniss Jacenko, and Yuxiang Wu. AIDE:
+AI-Driven Exploration in the Space of Code. arXiv preprint , 2025. https://arxiv.org/abs/2502.13138 .
+Ziheng Jiang, Haibin Lin, Yinmin Zhong, Qi Huang, Yangrui Chen, Zhi Zhang, Yanghua Peng, Xiang Li, Cong Xie,
+Shibiao Nong, Yulu Jia, Sun He, Hongmin Chen, Zhihao Bai, Qi Hou, Shipeng Yan, Ding Zhou, Yiyao Sheng, Zhuo
+Jiang, Haohan Xu, Haoran Wei, Zhang Zhang, Pengfei Nie, Leqi Zou, Sida Zhao, Liang Xiang, Zherui Liu, Zhe
+Li, Xiaoying Jia, Jianxi Ye, Xin Jin, and Xin Liu. Megascale: scaling large language model training to more than
+10,000 gpus. In Proceedings of the 21st USENIX Symposium on Networked Systems Design and Implementation ,
+NSDI’24, USA, 2024. USENIX Association. ISBN 978-1-939133-39-7.
+Levente Kocsis and Csaba Szepesvári. Bandit based monte-carlo planning. In European conference on machine learning ,
+pages 282–293. Springer, 2006.
+Apostolos Kokolis, Michael Kuchnik, John Hoffman, Adithya Kumar, Parth Malani, Faye Ma, Zachary DeVito, Shubho
+Sengupta, Kalyan Saladi, and Carole-Jean Wu. Revisiting Reliability in Large-Scale Machine Learning Research
+Clusters . In 2025 IEEE International Symposium on High Performance Computer Architecture (HPCA) , pages
+1259–1274, Los Alamitos, CA, USA, March 2025. IEEE Computer Society. doi: 10.1109/HPCA61900.2025.00096.
+https://doi.ieeecomputersociety.org/10.1109/HPCA61900.2025.00096 .
+Gregory M. Kurtzer, cclerget, Michael Bauer, Ian Kaneshiro, David Trudgian, and David Godlove. hpcng/singularity:
+Singularity 3.7.3, April 2021. https://doi.org/10.5281/zenodo.4667718 .
+Pat Langley, Herbert A Simon, Gary L Bradshaw, and Jan M Zytkow. Scientific discovery, 1987.
+Lisha Li, Kevin Jamieson, Giulia DeSalvo, Afshin Rostamizadeh, and Ameet Talwalkar. Hyperband: A novel
+bandit-based approach to hyperparameter optimization. Journal of Machine Learning Research , 18(185):1–52, 2018.
+Hanxiao Liu, Karen Simonyan, and Yiming Yang. DARTS: Differentiable architecture search. In International
+Conference on Learning Representations , 2019. https://openreview.net/forum?id=S1eYHoC5FX .
+Junwei Liu, Kaixin Wang, Yixuan Chen, Xin Peng, Zhenpeng Chen, Lingming Zhang, and Yiling Lou. Large language
+model-based agents for software engineering: A survey. arXiv preprint arXiv:2409.02977 , 2024.
+Chris Lu, Samuel Holt, Claudio Fanconi, Alex James Chan, Jakob Nicolaus Foerster, Mihaela van der Schaar, and
+Robert Tjarko Lange. Discovering preference optimization algorithms with and for large language models. In The
+Thirty-eighth Annual Conference on Neural Information Processing Systems , 2024. https://openreview.net/forum?
+id=erjQDJ0z9L .
+Deepak Nathani, Lovish Madaan, Nicholas Roberts, Nikolay Bashlykov, Ajay Menon, Vincent Moens, Amar Budhiraja,
+Despoina Magka, Vladislav Vorotilov, Gaurav Chaurasia, Dieuwke Hupkes, Ricardo Silveira Cabral, Tatiana Shavrina,
+Jakob Foerster, Yoram Bachrach, William Yang Wang, and Roberta Raileanu. MLGym: A New Framework and
+Benchmark for Advancing AI Research Agents, 2025. https://arxiv.org/abs/2502.14499 .
+Randal S. Olson and Jason H. Moore. TPOT: A Tree-Based Pipeline Optimization Tool for Automating Machine Learn-
+ing, pages 151–160. Springer International Publishing, Cham, 2019. https://doi.org/10.1007/978-3-030-05318-5_8 .
+OpenAI. Gpt-4o system card. 2024. https://cdn.openai.com/gpt-4o-system-card.pdf .
+OpenAI. Introducing o3 and o4 mini, 2024. https://openai.com/index/introducing-o3-and-o4-mini/ .
+Yujia Qin, Shengding Hu, Yankai Lin, Weize Chen, Ning Ding, Ganqu Cui, Zheni Zeng, Xuanhe Zhou, Yufei Huang,
+Chaojun Xiao, Chi Han, Yi Ren Fung, Yusheng Su, Huadong Wang, Cheng Qian, Runchu Tian, Kunlun Zhu, Shihao
+Liang, Xingyu Shen, Bokai Xu, Zhen Zhang, Yining Ye, Bowen Li, Ziwei Tang, Jing Yi, Yuzhang Zhu, Zhenning Dai,
+Lan Yan, Xin Cong, Yaxi Lu, Weilin Zhao, Yuxiang Huang, Junxi Yan, Xu Han, Xian Sun, Dahai Li, Jason Phang,
+Cheng Yang, Tongshuang Wu, Heng Ji, Guoliang Li, Zhiyuan Liu, and Maosong Sun. Tool learning with foundation
+models.ACM Comput. Surv. , 57(4), December 2024. doi: 10.1145/3704435. https://doi.org/10.1145/3704435 .
+Esteban Real, Alok Aggarwal, Yanping Huang, and Quoc V. Le. Regularized evolution for image classifier architecture
+search. In Proceedings of the Thirty-Third AAAI Conference on Artificial Intelligence and Thirty-First Innovative
+Applications of Artificial Intelligence Conference and Ninth AAAI Symposium on Educational Advances in Artificial
+Intelligence , AAAI’19/IAAI’19/EAAI’19. AAAI Press, 2019. ISBN 978-1-57735-809-1. doi: 10.1609/aaai.v33i01.
+33014780. https://doi.org/10.1609/aaai.v33i01.33014780 .
+14Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M. Pawan Kumar, Emilien
+Dupont, Francisco J. R. Ruiz, Jordan S. Ellenberg, Pengming Wang, Omar Fawzi, Pushmeet Kohli, and Alhussein
+Fawzi. Mathematical discoveries from program search with large language models. Nature, 625(7995):468–475, 2024.
+ISSN 1476-4687. doi: 10.1038/s41586-023-06924-6. https://doi.org/10.1038/s41586-023-06924-6 .
+Chenglei Si, Diyi Yang, and Tatsunori Hashimoto. Can llms generate novel research ideas? a large-scale human study
+with 100+ nlp researchers. arXiv preprint arXiv:2409.04109 , 2024.
+Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar. Scaling llm test-time compute optimally can be more
+effective than scaling model parameters, 2024. https://arxiv.org/abs/2408.03314 .
+Kyle Swanson, Wesley Wu, Nash L. Bulaong, John E. Pak, and James Zou. The virtual lab: Ai agents design
+new sars-cov-2 nanobodies with experimental validation. bioRxiv, 2024. doi: 10.1101/2024.11.11.623004. https:
+//www.biorxiv.org/content/early/2024/11/12/2024.11.11.623004 .
+Chris Thornton, Frank Hutter, Holger H. Hoos, and Kevin Leyton-Brown. Auto-weka: combined selection and
+hyperparameter optimization of classification algorithms. In Proceedings of the 19th ACM SIGKDD International
+Conference on Knowledge Discovery and Data Mining , KDD ’13, page 847–855, New York, NY, USA, 2013.
+Association for Computing Machinery. ISBN 9781450321747. doi: 10.1145/2487575.2487629. https://doi.org/10.
+1145/2487575.2487629 .
+Matej Črepinšek, Shih-Hsi Liu, and Marjan Mernik. Exploration and exploitation in evolutionary algorithms: A survey.
+ACM Comput. Surv. , 45(3), July 2013. ISSN 0360-0300. https://doi.org/10.1145/2480741.2480752 .
+Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc V Le, Ed H. Chi, Sharan Narang, Aakanksha Chowdhery, and Denny
+Zhou. Self-consistency improves chain of thought reasoning in language models. In The Eleventh International
+Conference on Learning Representations , 2023. https://openreview.net/forum?id=1PL1NIMMrw .
+Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed H. Chi, Quoc V Le, and
+Denny Zhou. Chain of thought prompting elicits reasoning in large language models. In Alice H. Oh, Alekh
+Agarwal, Danielle Belgrave, and Kyunghyun Cho, editors, Advances in Neural Information Processing Systems , 2022.
+https://openreview.net/forum?id=_VjQlMeSB_J .
+Colin White, Samuel Dooley, Manley Roberts, Arka Pal, Benjamin Feuer, Siddhartha Jain, Ravid Shwartz-Ziv,
+Neel Jain, Khalid Saifullah, Sreemanti Dey, Shubh-Agrawal, Sandeep Singh Sandha, Siddartha Venkat Naidu,
+Chinmay Hegde, Yann LeCun, Tom Goldstein, Willie Neiswanger, and Micah Goldblum. Livebench: A challenging,
+contamination-free LLM benchmark. In The Thirteenth International Conference on Learning Representations , 2025.
+Hjalmar Wijk, Tao Lin, Joel Becker, Sami Jawhar, Neev Parikh, Thomas Broadley, Lawrence Chan, Michael Chen,
+Josh Clymer, Jai Dhyani, et al. Re-bench: Evaluating frontier ai r&d capabilities of language model agents against
+human experts. arXiv preprint arXiv:2411.15114 , 2024.
+Yutaro Yamada, Robert Tjarko Lange, Cong Lu, Shengran Hu, Chris Lu, Jakob Foerster, Jeff Clune, and David
+Ha. The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search, 2025. https:
+//arxiv.org/abs/2504.08066 .
+John Yang, Carlos Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao, Karthik Narasimhan, and Ofir Press.
+Swe-agent: Agent-computer interfaces enable automated software engineering. Advances in Neural Information
+Processing Systems , 37:50528–50652, 2024.
+Xu Yang, Xiao Yang, Shikai Fang, Bowen Xian, Yuante Li, Jian Wang, Minrui Xu, Haoran Pan, Xinpeng Hong,
+Weiqing Liu, Yelong Shen, Weizhu Chen, and Jiang Bian. R&d-agent: Automating data-driven ai solution building
+through llm-powered automated research, development, and evolution, 2025. https://arxiv.org/abs/2505.14738 .
+Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Thomas L. Griffiths, Yuan Cao, and Karthik Narasimhan. Tree of
+thoughts: Deliberate problem solving with large language models. 2023a.
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik R Narasimhan, and Yuan Cao. React: Synergizing
+reasoning and acting in language models. In The Eleventh International Conference on Learning Representations ,
+2023b. https://openreview.net/forum?id=WE_vluYUL-X .
+Barret Zoph and Quoc Le. Neural architecture search with reinforcement learning. In International Conference on
+Learning Representations , 2017. https://openreview.net/forum?id=r1Ue8Hcxg .
+15Appendix
+A Preconditions for Scaling
+Figure 7 Key factors dictating agent performance
+and scalability as compute resources increase.The hierarchical diagram in Fig. 7 illustrates key insights into
+the preconditions for improving agent performance through
+additional compute. Agents benefit from scaling search only
+when performance gains are not limited by the environment in
+which the agent operates, the quality of the evaluation signal
+guiding the search, the capability of the operators performing
+the search, or the search policy itself.
+Specifically, if the agent is provided with 10 ×more compute
+resources (e.g., 10 GPUs for 24 hours), the environment must
+allowtheagenttoeffectivelyleveragetheseresources. Without
+a sufficiently high-quality evaluation signal—the ability to ac-
+curately assess solution quality—the direction of improvement
+will be unclear, which would undermine the search process.
+Finally, a successful search requires capable operators that effectively perform their functions and a search
+policy that allocates compute efficiently to the most promising regions of the search space and appropriate
+operators.
+Overall, this work underscores the importance of a strong foundation in algorithm design and infrastructure
+to ensure that scaling search translates into downstream performance improvements.
+B Re-Casting AIDE in our Notation
+Section 2.3 shows how AIDE can be reformulated within our framework. Table 1 summarizes the tuple that
+specifies the AIDE agent.
+Table 1Instantiation of the tuple 
+F, πsel,O, πop, τ
+forAIDE.
+Component AIDEchoice
+F 5-fold CV score
+πsel Greedy + εbugexploration
+O O AIDE
+πop Fixed rule
+τ Wall-clock or No. Node cap
+C The Effect of Compute: Searching Beyond 24h
+In our analysis of the agents’ anytime performance (see Section 5.2), we observe that their rankings evolve
+over time, with significant differences in performance emerging only after 15 hours of execution. For the
+experiments presented in the main paper, we adopt the experimental setup proposed in the MLE-bench paper,
+where agents are given 24 hours to complete the task. However, our aim is to develop agents capable of
+effectively utilizing computational resources well beyond the 24-hour limit, and thus, evaluating within this
+restricted timeframe offers only limited insights into their potential long-term capabilities.
+To examine the impact of access to computational resources, we conducted an experiment with the same setup
+described in Section 5.2, extending the total runtime to 90 hours—nearly four days. The results, summarized
+in Fig. 8, demonstrate a similar pattern, where notable differences in behavior emerge after roughly 15 hours.
+Specifically, the performance of the AIRA agents ( AIRAgreedy andAIRAmcts ) continues to improve,
+whereas the performance of AIDEgreedy plateaus. Another notable observation is that agents employing our
+160 10 20 30 40 50 60 70 80 90
+Wall clock time (hrs)
+0%10%20%30%40%50%60%Medal Rate [DOJO] AIDEGreedy R1
+AIRAGreedy R1
+AIRAMCTS R1Figure 8 Medal achievement rates over a 90-hour search horizon. Each point represents the mean percentage of medals
+earned across 10 independent runs per task on the MLE-bench lite suite. Results are based on a complete replication
+of the baseline experiments and extended to 90 hours of search.
+0 10 20 30 40 50 60 70 80 90
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal Rate[DOJO] AIDEGreedy R1 (Validation)
+[DOJO] AIDEGreedy R1 (Test)
+(a)AIDE
+0 20 40 60 80 100 120
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal RateAIRAMCTS R1 (Validation)
+AIRAMCTS R1 (Test) (b)MCTS
+0 20 40 60 80 100 120
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal RateAIRAGreedy R1 (Validation)
+AIRAGreedy R1 (Test) (c)Greedy
+Figure 9 Test vs. Validation Medal Rates over 90 hours. Comparison of medal rates between test and validation scores for
+up to 120 hours of runtime. Each subplot shows the medal rate if the validation score matched the test score (potential
+performance) versus the actual medal rate given the true test score, revealing the performance gap between validation
+and test performance.
+17proposed operators, AIRAgreedy andAIRAmcts , exhibit comparable improvement profiles until around
+the 50-hour mark, at which point AIRAmcts begins to overfit and its performance subsequently deteriorates.
+Conversely, AIRAgreedy continues to improve, ultimately achieving a peak medal rate of approximately
+53%. This peak represents an absolute improvement of 6% over the highest performance attained with 24
+hours of compute, translating into a relative gain of 12%. However, the agent’s performance subsequently
+declines as overfitting begins to manifest. We see in Fig. 9 that the validation performance continues to climb
+higher and overfitting becomes more severe. Ultimately over the longer search horizon, we see AIRAgreedy
+andAIRAmcts achieve a similar test-validation gap as AIDEgreedy . This is consistent with our findings
+in Section 5.3 and highlights a fundamental limitation that affects agents’ ability to operate effectively over
+much longer time horizons.
+Overall, this analysis underscores the necessity of jointly considering search strategy, operator design, and
+computational resource availability (see Fig. 7). Furthermore, it highlights the fundamental impact of the
+generalization gap, identified and studied in Section 5.3.
+D Implementation Details
+Our experiments were run on a single-agent setup powered by an NVIDIA H200 GPU, 24 CPU cores of
+Intel(R) Xeon(R) Platinum 8488C, 100 GB of RAM, and an extra 1 TB of local-disk scratch space. Each
+job had a hard wall-clock cap of 24 hours, an execution time limit of 4 hours, and a 5 min grace period.
+We deployed full-sized DeepSeek-R1 model with sglang, and accessed via the litellmAPI with generation
+parameters temperature=0.6 andtop_p = 0.95 .
+For experiments done with MCTS, we set num_children=5, anduct_c=0.25 unless stated otherwise. For
+evolutionary search, we set the number of candidates_per_generation=5 for consistency. For AIRAmcts ,
+AIRAevo , and AIRAgreedy , we limit a debug cycle to total of 10 nodes or 12 hours of total time spent
+debugging (whichever comes first), to prevent spending all the resources on a single node.
+D.1 MCTS Statistics and Backup
+Each node vstores two running statistics: the visit count N(v)∈Nand the empirical mean fitness Q(v)∈R.
+When a freshly expanded leaf vℓis evaluated, we initialize N(vℓ) = 1andQ(vℓ) =F(vℓ), where Fis the proxy
+fitness used throughout the paper. The value F(vℓ)is thenback-propagated along the path P= (vℓ, . . . , v 0)
+to the root:
+∀u∈P:N(u)←N(u) + 1, Q (u)←Q(u) +F(vℓ)−Q(u)
+N(u).
+This incremental update maintains the invariant Q(u) =1
+N(u)PN(u)
+i=1F(vi), i.e. Q(u)is always the mean
+fitness of allleaf evaluations that have propagated through u. If a node is re-visited later, the same update
+is applied, allowing Qto converge to the true expected value under continued exploration. No simulated
+roll-outs are performed; the leaf value is taken directly from F.
+D.2 Draft
+You are a Kaggle Grandmaster attending a high-stakes competition.
+Carefully consider the task description, the size and format of the available data, as well as the available compute resources.
+Your goal is to provide EXACTLY ONE IDEA AND ONE CODE IMPLEMENTATION of the idea, different from those
+previously explored, that leverages the available resources and is likely to lead to strong performance on the competition. ,→
+Be specific about each step of the proposed approach, including data processing and feature engineering, the modeling and
+optimization method, as well as the evaluation (USE 5-FOLD CROSS-VALIDATION). ,→
+You MUST PROVIDE a solution IDEA/PLAN in natural language and CODE in python that DOES NOT INVOLVE any
+exploratory data analysis. ,→
+# TASK DESCRIPTION
+````
+{{task_desc}}
+````
+18# PREVIOUSLY EXPLORED IDEAS
+````markdown
+{{memory}}
+````
+# DATA OVERVIEW
+````
+{{data_overview}}
+````
+**CONSTRAINTS**:
+- Be aware of the running time of the solution, it should complete within {{execution_timeout}}
+- Prefer vectorized operations over Python loops when processing large datasets.
+- Use `torch.optim.AdamW `(the recommended optimizer) instead of the deprecated `AdamW `from `transformers `.
+- Replace the deprecated `early_stopping_rounds `argument in `lightgbm.train() `with the
+`lightgbm.early_stopping(stopping_rounds=...) `callback. ,→
+- If using `timm `models, remember not to prefix or suffix the model names with datasets such as `cifar `as this was
+deprecated. ,→
+- As much as possible, keep the stdout clean.
+**DATA**: The data is already prepared and available in the read-only `./data `directory. You should not unzip any files.
+**COMPUTE**: You have access to a Python environemnt with 1 NVIDIA H200 GPU(s) and 24 CPUs available, and the
+following packages installed: {{packages}}. If you need to, feel free to use additional libraries that fit the problem. ,→
+Consider the previously explored ideas, and make sure the idea you propose considers a DIFFERENT ASPECT OF THE
+SOLUTION, but keep the EVALUATION CONSISTENT. ,→
+Brainstorm about possible approaches and WHY THEY ARE LIKELY TO BE EFFECTIVE AND INCREASE THE
+PERFORMANCE for the given task, and the available data and compute resources. ,→
+Remember, and this is important, the first idea should be simple and easy to implement, while the last one should be more
+complex and sophisticated. ,→
+{% if draft_complexity == 'simple '%}
+In this iteration **focus on PROPOSING A SIMPLE IDEA:** one that can serve as a SIMPLE YET EFFECTIVE BASELINE
+for the task. For example, consider battle-tested methods or (potentially pre-trained) models that are known to work well
+for the task at hand.,→
+,→
+{% elif draft_complexity == 'normal '%}
+In this iteration **focus on PROPOSING A MORE COMLPEX IDEA:** one that can beat the previous baselines at the cost
+of some complexity and compute. For example, consider leveraging more complex and/or larger (potentially pre-trained)
+models, specialized feature engineering, or basic ensambling and/or hyper-parameter optimization.,→
+,→
+{% elif draft_complexity == 'complex '%}
+In this iteration **focus on PROPOSING AN ADVANCED IDEA:** one that can beat the previous baselines at the cost of
+some complexity and compute. For example, consider using specialized (potentially pre-trained) models, leveraging
+advanced feature engineering or data augmentiation strategies, advanced ensambling and/or hyper-parameter
+optimization.,→
+,→
+,→
+{% endif %}
+**RESPONSE FORMAT FOR IMPLEMENTATION**:
+Provide a **SINGLE** Markdown code block (wrapped in ```) for the implementation containing a **SELF-CONTAINED**
+Python script that: ,→
+1. Implements the idea **END-TO-END**
+2. **PRINTS THE 5-FOLD CROSS-VALIDATION** score of the evaluation metric
+3. **SAVES THE TEST PREDICTIONS** in a `submission.csv `file in the current directory
+Start by making sure you understand the task, the data and compute resources and the idea. Then generate a detailed
+implementation plan that will structure and guide you step-by-step through the implementation process. Make sure to
+reflect on the plan to ensure that the implementation is efficient and faithful to the idea, and that all the requirements
+(e.g., the evaluation score is printed, the submission file follows the correct format and is saved in the correct location,
+etc.) are satisfied.,→
+,→
+,→
+,→
+For large datasets, avoid for loops and aim for efficient and fast data loading and feature engineering.
+Format the proposed solution as follows:
+# Idea to implement
+<the proposed idea/plan>
+```python
+<the implementation of the proposed idea/plan>
+```
+D.3 Improve
+# Introduction:
+You are a Kaggle Grandmaster attending a high-stakes competition.
+19Carefully consider the task description, the size and format of the available data, as well as the available compute resources.
+Your goal is to provide EXACTLY ONE IDEA AND ONE CODE IMPLEMENTATION of the idea, different from those
+previously explored, that improves upon an existing solution to the task. ,→
+Be specific about each step of the proposed improvement, including data processing and feature engineering, the modeling and
+optimization method, as well as the evaluation (USE 5-FOLD CROSS-VALIDATION). ,→
+You MUST PROVIDE an improvement IDEA/PLAN in natural language and CODE in python that DOES NOT INVOLVE
+any exploratory data analysis. ,→
+# TASK DESCRIPTION
+````
+{{task_desc}}
+````
+# PREVIOUS SOLUTION:
+## Code:
+{{prev_code}}
+## Terminal Output:
+{{prev_terminal_output}}
+# PREVIOUSLY EXPLORED IMPROVEMENT IDEAS
+````markdown
+{{memory}}
+````
+# DATA OVERVIEW
+````
+{{data_overview}}
+````
+**CONSTRAINTS**:
+- Be aware of the running time of the solution, it should complete within {{execution_timeout}}
+- Prefer vectorized operations over Python loops when processing large datasets.
+- Use `torch.optim.AdamW `(the recommended optimizer) instead of the deprecated `AdamW `from `transformers `.
+- Replace the deprecated `early_stopping_rounds `argument in `lightgbm.train() `with the
+`lightgbm.early_stopping(stopping_rounds=...) `callback. ,→
+- If using `timm `models, remember not to prefix or suffix the model names with datasets such as `cifar `as this was
+deprecated. ,→
+- As much as possible, keep the stdout clean.
+**DATA**: The data is already prepared and available in the read-only `./data `directory. You should not unzip any files.
+**COMPUTE**: You have access to a Python environemnt with 1 NVIDIA H200 GPU(s) and 24 CPUs available, and the
+following packages installed: {{packages}}. If you need to, feel free to use additional libraries that fit the problem. ,→
+Consider the previously explored ideas, and make sure the improvement idea you propose considers a DIFFERENT
+IMPROVEMENT OF THE SOLUTION, but keep the EVALUATION CONSISTENT. ,→
+Brainstorm about possible improvements and WHY THEY ARE LIKELY TO BE EFFECTIVE AND INCREASE THE
+PERFORMANCE for the given task, and the available data and compute resources. ,→
+{% if improve_complexity == 'simple '%}
+In this iteration, suggest a *minimal, low-risk* tweak that keeps the current solution 's core intact—no architecture overhauls or
+fundamental methodology changes. ,→
+Think: a feature-engineering twist, a lightweight data-augmentation trick, or hyperparameter changes.
+Check the MEMORY section first and avoid duplicating earlier ideas.
+{% elif improve_complexity == 'normal '%}
+In this iteration, propose a *moderate upgrade* that builds on the baseline without deviating dramatically.
+Options include (but not limited to) hyper-parameter tuning, a small ensemble of similar models, a sturdier preprocessing
+pipeline, feature engineering improvements, and data augmentation. ,→
+Check the MEMORY section first and avoid duplicating earlier ideas.
+{% elif improve_complexity == 'complex '%}
+In this iteration, recommend a *substantial extension* that pushes the method 's boundaries while preserving its core logic.
+Consider advanced ensembling/stacking, fine-tuning specialized pre-trained models, or exhaustive hyper-parameter searches.
+Check the MEMORY section first and avoid duplicating earlier ideas.
+{% endif %}
+**RESPONSE FORMAT FOR IMPLEMENTATION**:
+Provide a **SINGLE** Markdown code block (wrapped in ```) containing a **SELF-CONTAINED** Python script that:
+1. Implements the idea **END-TO-END**
+2. **PRINTS THE 5-FOLD CROSS-VALIDATION** score of the evaluation metric
+3. **SAVES THE TEST PREDICTIONS** in a `submission.csv `file in the current directory
+Start by making sure you understand the task, the data and compute resources and the idea. Then generate a detailed
+implementation plan that will structure and guide you step-by-step through the implementation process. Make sure to
+reflect on the plan to ensure that the implementation is efficient and faithful to the idea, and that all the requirements
+(e.g., the evaluation score is printed, the submission file follows the correct format and is saved in the correct location,
+etc.) are satisfied.,→
+,→
+,→
+,→
+For large datasets, avoid for loops and aim for efficient and fast data loading and feature engineering.
+Format the proposed solution as follows:
+20# Improvement Idea to implement
+<the proposed improvement idea/plan>
+```python
+<the implementation of the proposed improvement>
+```
+D.4 Analysis
+# Introduction:
+You are a Kaggle grandmaster attending a competition.
+You have written code to solve this task and now need to evaluate the output
+of the code execution.
+You should determine if there were any bugs as well as report the empirical
+findings.
+# Task Description:
+{{task_desc}}
+# Implementation:
+{{code}}
+# Execution output:
+{{execution_output}}
+D.5 Debug
+# Introduction:
+You are a Kaggle Grandmaster fixing code bugs in a high-stakes competition solution.
+Carefully review the previous debugging attempts, the buggy code and its terminal output in addition
+to the given task/data details, and available compute resources. ,→
+You must not change the core idea or methodology of the solution, but only fix the bugs in the code.
+# Task Description:
+````markdown
+{{task_desc}}
+````
+{% if memory %}
+# Previous debugging attempts:
+````markdown
+{{memory}}
+````
+{% endif %}
+# Buggy Implementation:
+{{prev_buggy_code}}
+# Execution Output (Error):
+{{execution_output}}
+21# Data Overview:
+````
+{{data_overview}}
+````
+# Compute Environment:
+- GPU: 1 NVIDIA H200
+- CPUs: 24
+- Available Packages: {{packages}}
+- Additional libraries allowed as needed.
+# Instructions:
+- **Do NOT** alter the core method or underlying idea. Only correct existing bugs.
+- Outline your bug-fix plan clearly in 3-5 concise sentences.
+- Provide a single, complete Python code block wrapped in markdown ( ```python) that:
+- Implements the fix fully.
+- Calculates and clearly prints the evaluation metric using a validation set (use 5-FOLD CV if suitable).
+- Generates a `submission.csv `file with test set predictions stored in the **current directory**
+(`./submission.csv `). ,→
+- Is fully self-contained and executable as-is (The entire bug-free solution is given).
+- **Important Reminders:**
+- Absolutely do **NOT** skip any part of the code.
+- Always ensure predictions on the provided unlabeled test set are saved in `./submission.csv `. This is
+crucial for grading. ,→
+# Other remarks
+- Huggingface is set to OFFLINE mode by default. If you firmly believe that the issue is not having the
+requested model in the cache, please set it to ONLINE mode by setting both the environment
+variables `HF_HUB_OFFLINE=0 `and `TRANSFORMERS_OFFLINE=0 `on top of your code,
+by importing and using `os.environ[...] = ... `.,→
+,→
+,→
+- Do not set/force Huggingface to OFFLINE mode as that will NOT fix any issue.
+- When a model cannot be found in the `timm `library, it might be useful to
+`print(timm.list_models()) `. ,→
+- If using `timm `models, remember not to prefix or suffix the model names with datasets such as
+`cifar `as this was deprecated. ,→
+Brainstorm about possible ways to fix the bug and WHY THEY ARE LIKELY TO FIX THE BUG for
+the given implementation. Additionally, if any other bugs further down the line are observed,
+please fix them as well.,→
+,→
+Generate a bug-fix plan that will structure and guide your step-by-step reasoning process. Reflect on it
+to make sure all the requirements are satisfied. ,→
+Format the proposed bug-fix plan and code as follows:
+# Bug Fix Plan
+<bug-fix plan>
+```python
+<the fixed python code>
+```
+E Completion Tokens Per Method
+In Fig. 10, we summarize each method’s average number of completion tokens per operator. The analysis
+suggests that our changes to the operators (see Section 4.1) lead to substantially longer thinking chains.
+22AIDE R1 EVO R1
+Greedy R1 MCTS R1
+Method010002000300040005000600070008000Mean Completion T okens4227.78081.0 8192.87986.8draft
+AIDE R1 EVO R1
+Greedy R1 MCTS R1
+Method2010.56116.36993.0
+6045.9improve
+AIDE R1 EVO R1
+Greedy R1 MCTS R1
+Method3551.46428.5 6492.06203.7debugFigure 10 Number of completion tokens per operator for each agent. Each value is averaged across the independent runs on
+the MLE-bench lite suite in the main experiments (see Section 5.2).
+F Infrastructure Lessons
+The infrastructure design of AIRA-dojo was informed by a few reliability and performance constraints:
+1.LLM Service. As we scaled experiments, we observed that external LLM services slow down, risking
+timeouts. While the exact rate limits are set by the API provider4, their existence nevertheless places
+an upper bound on the number of parallel actors and introduces a point of failure. Self-hosting LLMs is
+therefore required for reliable scaling.
+2.Environments. Early experiments resulted in agents corrupting Python environments e.g., via a pip
+install. Virtualization technology, such as containers, was therefore a natural fit for state isolation.
+3.Checkpointing. In line with prior work Jiang et al. (2024); et. al. (2024); Kokolis et al. (2025); et. al.
+(2025), we observe that both hard (machine failure, filesystem failures) and soft failures (slowdowns) are
+commonplace. Consider, for example, 10 experiments, each with 100 agents and each running for 24
+hours—that results in 10×100×24=24000hours of required uninterrupted uptime, which is significant
+when compared to a Mean Time to Failures of ∼1000hours per node Kokolis et al. (2025). We therefore
+introduced checkpointing support to mitigate the effects.
+G Rationale for Selection of Search Policies
+To systematically evaluate search policies we selected three complementary approaches. AIDE’s greedy
+tree-search policy serves as an efficient baseline that prioritizes exploitation. Monte Carlo Tree Search
+(MCTS) extends this by allowing us to directly modulate the exploration-exploitation tradeoff through a
+single parameter. In contrast, the evolutionary graph-based search policy leverages population-based sampling
+and recombination, representing a fundamentally different strategy from both greedy and tree-based methods.
+4https://platform.openai.com/docs/guides/rate-limits
+23H Variance in the Performance Estimation
+AI agent performance on complex benchmarks like MLE-bench exhibits substantial variance that can severely
+impact the reliability of comparative evaluations. While MLE-bench’s official recommendations suggest using
+at least 3 seeds for evaluation, this may be insufficient for reliable agent rankings and performance estimation,
+particularly given that agents/LLMs can be quite high-variance inherently.
+[DOJO] AIDEGreedy R1AIRAGreedy R1AIRAMCTS R1AIRAEvo R130%35%40%45%50%55%60%Medal Rate
+39.446.951.5
+45.4
+37.846.9
+42.4 42.4
+37.950.048.6
+43.9
+37.845.547.0
+45.53 seeds
+[DOJO] AIDEGreedy R1AIRAGreedy R1AIRAMCTS R1AIRAEvo R1
+40.048.1
+46.345.5
+40.043.651.9
+46.3
+42.848.250.9
+43.7
+39.146.447.2
+41.95 seeds
+[DOJO] AIDEGreedy R1AIRAGreedy R1AIRAMCTS R1AIRAEvo R130%35%40%45%50%55%60%Medal Rate
+39.147.8 47.7
+43.2
+41.344.145.945.0
+39.144.545.4
+42.8
+38.646.347.2
+41.810 seeds
+[DOJO] AIDEGreedy R1AIRAGreedy R1AIRAMCTS R1AIRAEvo R1
+39.746.047.0
+42.7
+40.647.3 46.9
+43.6
+39.746.4 46.4
+44.0
+40.345.747.6
+41.815 seedsSample 1 Sample 2 Sample 3 Sample 4 Mean with 20 Seeds 95% CI
+Figure 11 Potential algorithm rankings under different seed counts. This figure demonstrates how the same algorithms could
+be ranked differently if fewer seeds were used, illustrating the instability that results from estimating performance with
+insufficient samples. While confidence intervals theoretically capture this uncertainty, researchers often underestimate
+how dramatically rankings can shift with limited seeds. Each panel shows plausible alternative rankings that could
+emerge from the same underlying algorithm performance distributions. We recommend using a minimum of 10 seeds
+per task for moderate ranking stability, with 20 seeds preferred to avoid misleading conclusions about relative algorithm
+performance.
+Figure 11 demonstrates how dramatically agent rankings can shift with insufficient seed sampling. Each
+run represents a sample from the underlying performance distribution (estimated from 20 seeds), and with
+only a few seeds, observed performance differences may be statistical artifacts rather than genuine capability
+differences. Given MLE-bench’s computational intensity—with 75 competitions requiring substantial resources
+per run—most researchers face a critical trade-off. If options were to evaluate on all 75 competitions with 3
+seeds each or evaluate on 22 competitions with 10 seeds each, the latter provides more reliable conclusions.
+While the former experimental setup offers broader coverage, the individual competition results are unreliable,
+making it difficult to determine whether an agent genuinely excels at specific types of ML engineering tasks.
+Thus, we prefer to enable confident identification of an agent’s strengths and weaknesses across a representative
+subset of competitions.
+For future work we recommend a minimum of 10 seeds per competition (with 20 seeds much more preferred),
+stratifiedbootstrappingforconfidenceintervalsratherthanstandarderrorestimates, andafocusoncompetition
+subsets (e.g., MLE-bench Lite) with higher seed counts rather than full evaluation with few seeds.
+24[DOJO] AIDEGreedy R1
+AIRAGreedy R1
+AIRAMCTS R1
+AIRAEvo R1
+[DOJO] AIDE*
+Greedy o1-preview
+[DOJO] AIDEGreedy o3
+AIRAEvo o3
+AIRAMCTS o3
+AIRAGreedy o3
+[OAI] AIDEGreedy o1-preview0.0000.0250.0500.0750.1000.1250.1500.175VarianceWithin-Task
+Between-Task(a)Variance Decomposition
+Always Medal Never Medal Mixed Results0246810121416Number of Tasks[DOJO] AIDEGreedy R1
+AIRAGreedy R1
+AIRAMCTS R1
+AIRAEvo R1
+[DOJO] AIDE*
+Greedy o1-preview
+[DOJO] AIDEGreedy o3
+AIRAEvo o3
+AIRAMCTS o3
+AIRAGreedy o3
+[OAI] AIDEGreedy o1-preview (b)Task Outcome
+Figure 12 Sources of performance variance across tasks and seeds. (a) Variance decomposition shows that a substantial
+portion of the observed variance in agent performance arises from between-task variability (across tasks). However,
+certain methods’ medal achievements are equally as variable within a task. (b)Distribution of medal outcomes
+across tasks for each agent, showing how frequently a method consistently performs well (always medals), consistently
+fails (never medals), or exhibits inconsistent performance (sometimes medals). These figures underscore that agent
+evaluation on MLE-bench is impacted both by stochasticity in task-level performance and by systematic variation in
+task difficulty or agent specialization.
+I Test-Validation Gap Results
+In Fig. 4a, we present the performance profile of AIDEgreedy . In Fig. 13, we show the performance profiles
+ofAIRAmcts ,AIRAevo , and AIRAgreedy . Compared to Fig. 4a, the agents using AIRA operators
+display a smaller gap between test and validation scores.
+J Per-Task Results
+This section presents the non-aggregated, per-task results obtained from the MLE-bench Lite suite in
+Section 5.2. The results are summarized in Fig. 14.
+K Sample Search Trees
+We present samples of search trees from various methods used in the spooky-author-identification task, as
+shown in Figures 15 to 17. The colors of the nodes indicate the validation scores, while the labels within
+the nodes display the test scores. We represent medal-winning nodes with medal emojis and above-median
+ranking solutions (relative to the human leaderboard) with an ok emoji. The nodes in red are buggy nodes.
+250.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal RateAIRAEvo o3 (Validation)
+AIRAEvo o3 (Test)
+AIRAEvo R1 (Validation)
+AIRAEvo R1 (Test)(a)Evolutionary
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal RateAIRAMCTS o3 (Validation)
+AIRAMCTS o3 (Test)
+AIRAMCTS R1 (Validation)
+AIRAMCTS R1 (Test) (b)MCTS
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0
+Wall clock time (hrs)
+0%10%20%30%40%50%60%70%Medal RateAIRAGreedy o3 (Validation)
+AIRAGreedy o3 (Test)
+AIRAGreedy R1 (Validation)
+AIRAGreedy R1 (Test)
+(c)Greedy
+Figure 13 Perceived vs. actual medal rate over 24 hours of searching with the AIRA operators using different search policies.
+The curves show the mean validation (agent-reported) and held-out test medal rates across 20 seeds with R1and
+10 seeds o3for all tasks. The widening band illustrates the generalization gap, revealing how apparent gains on the
+validation set can mask overfitting and ultimately undermine the search process.
+26Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Rateall
+Any Medal  Silver
+ GoldMedal Rateaerial-cactus-identification
+Any Medal  Silver
+ GoldMedal Rateaptos2019-blindness-detection
+Any Medal  Silver
+ GoldMedal Ratedenoising-dirty-documents
+Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Ratedog-breed-identification
+Any Medal  Silver
+ GoldMedal Ratedogs-vs-cats-redux-kernels-edition
+Any Medal  Silver
+ GoldMedal Ratehistopathologic-cancer-detection
+Any Medal  Silver
+ GoldMedal Ratejigsaw-toxic-comment-classification-challenge
+Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Rateleaf-classification
+Any Medal  Silver
+ GoldMedal Ratemlsp-2013-birds
+Any Medal  Silver
+ GoldMedal Ratenew-york-city-taxi-fare-prediction
+Any Medal  Silver
+ GoldMedal Ratenomad2018-predict-transparent-conductors
+Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Rateplant-pathology-2020-fgvc7
+Any Medal  Silver
+ GoldMedal Raterandom-acts-of-pizza
+Any Medal  Silver
+ GoldMedal Rateranzcr-clip-catheter-line-classification
+Any Medal  Silver
+ GoldMedal Ratesiim-isic-melanoma-classification
+Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Ratespooky-author-identification
+Any Medal  Silver
+ GoldMedal Ratetabular-playground-series-dec-2021
+Any Medal  Silver
+ GoldMedal Ratetabular-playground-series-may-2022
+Any Medal  Silver
+ GoldMedal Ratetext-normalization-challenge-english-language
+Any Medal  Silver
+ Gold0%20%40%60%80%100%Medal Ratetext-normalization-challenge-russian-language
+Any Medal  Silver
+ GoldMedal Ratethe-icml-2013-whale-challenge-right-whale-redux
+Any Medal  Silver
+ GoldMedal Ratedetecting-insults-in-social-commentary[OAI] AIDEGreedy o1-preview
+[DOJO] AIDE*
+Greedy o1-preview[DOJO] AIDEGreedy R1
+[DOJO] AIDEGreedy o3AIRAEvo R1
+AIRAEvo o3AIRAGreedy R1
+AIRAGreedy o3AIRAMCTS R1
+AIRAMCTS o3Figure 14 Per-task performance. Methods utilizing R1 are averaged over 20 seeds per task and methods utilising o3 are
+averaged over 10 seeds per task
+27Figure 15 AIRAgreedy
+28Figure 16 AIRAevo
+29Figure 17 AIRAmcts
+30
