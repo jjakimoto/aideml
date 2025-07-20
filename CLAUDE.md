@@ -6,11 +6,28 @@ This document provides a guide to the project structure of AIDE ML, an LLM-drive
 
 ```
 aideml/
+├── .github/                # GitHub-specific configurations
+│   └── workflows/          # GitHub Actions CI/CD workflows
+│       ├── auto-merge.yml  # Automated PR merging workflow
+│       ├── claude.yml      # Claude-specific workflow
+│       ├── pr-fix.yml      # PR fixing automation
+│       └── pr-review.yml   # PR review automation
 ├── aide/                   # All source code
 │   ├── backend/            # LLM backend integrations
 │   ├── example_tasks/      # Example tasks for the agent to solve
+│   │   ├── bitcoin_price/  # Bitcoin price prediction task data
+│   │   │   └── BTC-USD.csv # Bitcoin historical price data
+│   │   ├── house_prices/   # House price prediction task data
+│   │   │   ├── data_description.txt
+│   │   │   ├── sample_submission.csv
+│   │   │   ├── test.csv
+│   │   │   └── train.csv
+│   │   ├── bitcoin_price.md
+│   │   └── house_prices.md
 │   ├── utils/              # Configuration, data preview, metrics, and other utilities
 │   ├── webui/              # Streamlit-based web UI
+│   │   ├── app.py          # Main Streamlit application
+│   │   └── style.css       # Custom CSS styling
 │   ├── agent.py            # Core agent logic for tree search and code generation
 │   ├── interpreter.py      # Executes and evaluates code solutions
 │   ├── journal.py          # Logging and recording experiment progress
@@ -22,7 +39,7 @@ aideml/
 │   ├── papers/             # Research papers and references
 │   ├── explain.md          # Project explanation
 │   └── plan.md             # Claude Code integration plan
-├── sample_results/         # Example outputs from the agent
+├── sample_results/         # Example outputs from the agent (60+ ML solutions)
 ├── tests/                  # Unit tests directory
 │   ├── __init__.py
 │   ├── test_benchmark_backends.py
@@ -32,6 +49,8 @@ aideml/
 │   ├── test_mcp_integration.py
 │   ├── test_performance_monitor.py
 │   └── test_specialized_prompts.py
+├── LICENSE                 # Project license file
+├── README.md               # Project README
 ├── environment.yml         # Conda environment specification
 ├── requirements.txt        # Python dependencies
 ├── run_aide.py             # Primary CLI entry point
@@ -166,7 +185,7 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-085418.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-091419.md` for the latest implementation status.
 
 ## Using the New Features
 
