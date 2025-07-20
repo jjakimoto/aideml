@@ -12,9 +12,10 @@ dependencies:
   - scikit-learn=1.5.0
   - matplotlib
   - seaborn
-  - pytorch
-  - torchvision
-  - torchaudio
+  - pytorch::pytorch-cuda=12.4
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
   - lightgbm
   - opencv
   - scikit-image

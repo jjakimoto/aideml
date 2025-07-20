@@ -1,4 +1,4 @@
-from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini
+from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini, backend_claude_code
 from .utils import FunctionSpec, OutputType, PromptType, compile_prompt_to_md
 import re
 import logging
@@ -28,13 +28,15 @@ provider_to_query_func = {
     "anthropic": backend_anthropic.query,
     "openrouter": backend_openrouter.query,
     "gemini": backend_gemini.query,
+    "claude_code": backend_claude_code.query,
 }
 
 
 def query(
     system_message: PromptType | None,
     user_message: PromptType | None,
-    model: str,
+    model: str = None,
+    backend: str = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
     func_spec: FunctionSpec | None = None,
@@ -48,6 +50,7 @@ def query(
         system_message (PromptType | None): Uncompiled system message (will generate a message following the OpenAI/Anthropic format)
         user_message (PromptType | None): Uncompiled user message (will generate a message following the OpenAI/Anthropic format)
         model (str): string identifier for the model to use (e.g. "gpt-4-turbo")
+        backend (str | None, optional): Explicitly specify the backend to use (e.g. "claude_code"). If None, backend is determined from model name.
         temperature (float | None, optional): Temperature to sample at. Defaults to the model-specific default.
         max_tokens (int | None, optional): Maximum number of tokens to generate. Defaults to the model-specific max tokens.
         func_spec (FunctionSpec | None, optional): Optional FunctionSpec object defining a function call. If given, the return value will be a dict.
@@ -62,7 +65,15 @@ def query(
         "max_tokens": max_tokens,
     }
 
-    provider = determine_provider(model)
+    # Determine provider - explicit backend takes precedence
+    if backend:
+        provider = backend
+    else:
+        provider = determine_provider(model)
+    
+    if provider not in provider_to_query_func:
+        raise ValueError(f"Unknown provider/backend: {provider}")
+    
     query_func = provider_to_query_func[provider]
     output, req_time, in_tok_count, out_tok_count, info = query_func(
         system_message=compile_prompt_to_md(system_message) if system_message else None,
