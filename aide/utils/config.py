@@ -46,6 +46,9 @@ class AgentConfig:
     expose_prediction: bool
     data_preview: bool
 
+    backend: str | None
+    backend_options: dict
+
     code: StageConfig
     feedback: StageConfig
 

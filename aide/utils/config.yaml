@@ -41,6 +41,11 @@ agent:
   # whether to provide the agent with a preview of the data
   data_preview: True
 
+  # backend selection (null means auto-detect from model name)
+  backend: null
+  # backend-specific options
+  backend_options: {}
+
   # LLM settings for coding
   code:
     model: o4-mini

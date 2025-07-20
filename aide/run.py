@@ -137,7 +137,7 @@ def run():
 
     if cfg.generate_report:
         print("Generating final report from journal...")
-        report = journal2report(journal, task_desc, cfg.report)
+        report = journal2report(journal, task_desc, cfg.report, cfg.agent.backend, cfg.agent.backend_options)
         print(report)
         report_file_path = cfg.log_dir / "report.md"
         with open(report_file_path, "w") as f:
