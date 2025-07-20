@@ -474,7 +474,12 @@ async def query_async(
             # Use temporary MCP config
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
                 temp_mcp_config = tmp_file.name
-                _create_mcp_config_for_func_spec(func_spec, temp_mcp_config)
+                _create_mcp_config_for_func_spec(
+                    func_spec, temp_mcp_config,
+                    use_advanced=use_advanced_mcp,
+                    http_mode=mcp_http_mode,
+                    port=mcp_http_port
+                )
                 options_dict["mcp_config"] = temp_mcp_config
         
         # Allow the specific MCP tool
