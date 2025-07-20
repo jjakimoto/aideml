@@ -215,12 +215,20 @@ python run_aide.py --task task.md \
 
 The MCP (Model Context Protocol) integration enhances Claude Code's function calling capabilities:
 
-1. **Automatic MCP Configuration**: When `use_mcp=true` and a FunctionSpec is provided, the backend automatically generates an MCP configuration that exposes the function as an MCP tool.
+1. **Automatic MCP Configuration**: When `use_mcp=true` and a FunctionSpec is provided, the backend automatically generates an MCP configuration that exposes the function as an MCP tool using `python -m aide.backend.mcp_server`.
 
 2. **MCP Tool Naming**: Functions are exposed with the naming convention `mcp__aide__call_<function_name>`, following MCP security best practices.
 
-3. **MCP Server**: A basic MCP server implementation (`aide/backend/mcp_server.py`) is provided for handling function calls in stdio mode.
+3. **Robust MCP Server**: Enhanced MCP server implementation (`aide/backend/mcp_server.py`) with:
+   - Proper JSON-RPC error handling with standard error codes
+   - Robust stdio mode communication
+   - Graceful error recovery and logging
+   - Clear documentation of current limitations (stdio only, basic functionality)
 
-4. **Graceful Fallback**: When MCP is not available or disabled, the backend falls back to text-based function specification in prompts.
+4. **Improved Function Extraction**: Refactored function call extraction with prioritized strategies:
+   - Primary: MCP tool call extraction from messages
+   - Fallback: JSON extraction from response text with multiple parsing strategies
 
-5. **Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py`.
+5. **Graceful Fallback**: When MCP is not available or disabled, the backend falls back to text-based function specification in prompts.
+
+6. **Comprehensive Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py` with coverage for all refactored components.
