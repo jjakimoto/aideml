@@ -39,6 +39,16 @@ class SearchConfig:
     num_drafts: int
 
 
+@dataclass 
+class HybridBackendConfig:
+    code_backend: str = "claude_code"
+    code_model: str = "claude-opus-4"
+    analysis_backend: str | None = None
+    analysis_model: str = "gpt-4o"
+    default_backend: str | None = None
+    default_model: str = "gpt-4o"
+
+
 @dataclass
 class AgentConfig:
     steps: int
@@ -48,6 +58,7 @@ class AgentConfig:
 
     backend: str | None
     backend_options: dict
+    hybrid: HybridBackendConfig | None
 
     code: StageConfig
     feedback: StageConfig

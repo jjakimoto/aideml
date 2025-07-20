@@ -1,8 +1,10 @@
-from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini, backend_claude_code
+from . import backend_anthropic, backend_openai, backend_openrouter, backend_gemini, backend_claude_code, backend_hybrid
 from .utils import FunctionSpec, OutputType, PromptType, compile_prompt_to_md
+from ..utils.performance_monitor import get_performance_monitor
 import re
 import logging
 import os
+import time
 
 logger = logging.getLogger("aide")
 
@@ -29,6 +31,7 @@ provider_to_query_func = {
     "openrouter": backend_openrouter.query,
     "gemini": backend_gemini.query,
     "claude_code": backend_claude_code.query,
+    "hybrid": backend_hybrid.query,
 }
 
 
@@ -74,12 +77,47 @@ def query(
     if provider not in provider_to_query_func:
         raise ValueError(f"Unknown provider/backend: {provider}")
     
+    # Get performance monitor
+    monitor = get_performance_monitor()
+    
+    # Extract task type from model_kwargs if available
+    task_type = model_kwargs.pop('task_type', None)
+    
     query_func = provider_to_query_func[provider]
-    output, req_time, in_tok_count, out_tok_count, info = query_func(
-        system_message=compile_prompt_to_md(system_message) if system_message else None,
-        user_message=compile_prompt_to_md(user_message) if user_message else None,
-        func_spec=func_spec,
-        **model_kwargs,
-    )
+    start_time = time.time()
+    success = True
+    error = None
+    
+    try:
+        output, req_time, in_tok_count, out_tok_count, info = query_func(
+            system_message=compile_prompt_to_md(system_message) if system_message else None,
+            user_message=compile_prompt_to_md(user_message) if user_message else None,
+            func_spec=func_spec,
+            **model_kwargs,
+        )
+    except Exception as e:
+        success = False
+        error = str(e)
+        raise
+    finally:
+        end_time = time.time()
+        
+        # Record performance metrics
+        if 'output' in locals():
+            total_tokens = in_tok_count + out_tok_count
+            monitor.record_query(
+                backend=provider,
+                model=model,
+                start_time=start_time,
+                end_time=end_time,
+                total_tokens=total_tokens,
+                prompt_tokens=in_tok_count,
+                completion_tokens=out_tok_count,
+                success=success,
+                error=error,
+                task_type=task_type,
+                request_time=req_time,
+                has_function_call=func_spec is not None
+            )
 
     return output
