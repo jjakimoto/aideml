@@ -33,6 +33,9 @@ class BackendBenchmark:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.performance_monitor = get_performance_monitor()
         
+        # Define available backends
+        self.available_backends = {'openai', 'anthropic', 'openrouter', 'gemini', 'claude_code', 'hybrid'}
+        
         # Define benchmark configurations
         self.backend_configs = {
             'openai': {
@@ -85,6 +88,39 @@ class BackendBenchmark:
         # This is a fallback - the example tasks should already exist
         pass
     
+    def _validate_backends(self, backends: List[str]) -> List[str]:
+        """Validate that backends are available and configured.
+        
+        Args:
+            backends: List of backend names to validate.
+            
+        Returns:
+            List of valid backend names.
+            
+        Raises:
+            ValueError: If no valid backends are found.
+        """
+        valid_backends = []
+        invalid_backends = []
+        
+        for backend in backends:
+            if backend in self.available_backends:
+                if backend in self.backend_configs:
+                    valid_backends.append(backend)
+                else:
+                    invalid_backends.append(f"{backend} (not configured)")
+            else:
+                invalid_backends.append(f"{backend} (not available)")
+        
+        if invalid_backends:
+            print(f"Warning: Skipping invalid backends: {', '.join(invalid_backends)}")
+        
+        if not valid_backends:
+            available = ', '.join(sorted(self.available_backends))
+            raise ValueError(f"No valid backends found. Available backends: {available}")
+        
+        return valid_backends
+    
     def run_benchmark(self, backends: List[str] = None, tasks: List[Path] = None,
                      max_workers: int = 1) -> Dict[str, Any]:
         """Run systematic benchmark across backends and tasks.
@@ -98,6 +134,7 @@ class BackendBenchmark:
             Dictionary containing benchmark results.
         """
         backends = backends or list(self.backend_configs.keys())
+        backends = self._validate_backends(backends)  # Validate backends before use
         tasks = tasks or self.get_benchmark_tasks()
         
         print(f"Starting benchmark with {len(backends)} backends and {len(tasks)} tasks...")
@@ -148,57 +185,103 @@ class BackendBenchmark:
         Returns:
             Dictionary containing benchmark results for this run.
         """
+        # Validate inputs
+        if not task.exists():
+            return {
+                'backend': backend,
+                'task': task.name,
+                'start_time': time.time(),
+                'end_time': time.time(),
+                'duration': 0,
+                'success': False,
+                'error': f"Task file not found: {task}",
+                'metrics': {}
+            }
+        
         config = self.backend_configs.get(backend, {})
         start_time = time.time()
         
-        # Build command
+        # Build command with input validation
         cmd = ['python', 'run_aide.py', '--task', str(task)]
         
-        # Add backend configuration
+        # Add backend configuration with validation
         if 'backend' in config:
-            cmd.extend(['--backend', config['backend']])
+            backend_value = str(config['backend']).strip()
+            if backend_value and not any(char in backend_value for char in ['&', '|', ';', '`']):
+                cmd.extend(['--backend', backend_value])
         
-        # Add backend options
+        # Add backend options with input validation
         for key, value in config.items():
             if key != 'backend':
-                cmd.extend(['--backend-opt', f'{key}={value}'])
+                # Validate key and value to prevent injection
+                key_str = str(key).strip()
+                value_str = str(value).strip()
+                if (key_str and value_str and 
+                    not any(char in key_str for char in ['&', '|', ';', '`', '=']) and
+                    not any(char in value_str for char in ['&', '|', ';', '`'])):
+                    cmd.extend(['--backend-opt', f'{key_str}={value_str}'])
         
-        # Add benchmark-specific options
+        # Add benchmark-specific options using OmegaConf format
         cmd.extend([
-            '--max-iterations', '3',  # Limit iterations for benchmarking
-            '--no-interactive'  # Disable interactive mode
+            'agent.steps=3'  # Limit iterations for benchmarking
         ])
         
-        # Run the benchmark
+        # Initialize result structure
         result = {
             'backend': backend,
             'task': task.name,
             'start_time': start_time,
             'success': False,
             'error': None,
-            'metrics': {}
+            'metrics': {},
+            'memory_usage': None
         }
         
         try:
-            # Run AIDE ML with the task
+            # Run AIDE ML with the task (increased timeout for complex tasks)
             process = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minute timeout per task
+                timeout=600,  # 10 minute timeout per task
+                cwd=Path(__file__).parent.parent.parent  # Run from project root
             )
             
             result['success'] = process.returncode == 0
-            result['stdout'] = process.stdout
-            result['stderr'] = process.stderr
+            
+            # Store only essential output to manage memory
+            if len(process.stdout) > 50000:  # Truncate very long outputs
+                result['stdout'] = process.stdout[-50000:]  # Keep last 50k chars
+                result['output_truncated'] = True
+            else:
+                result['stdout'] = process.stdout
+                result['output_truncated'] = False
+            
+            if len(process.stderr) > 10000:  # Keep stderr smaller
+                result['stderr'] = process.stderr[-10000:]
+                result['stderr_truncated'] = True
+            else:
+                result['stderr'] = process.stderr
+                result['stderr_truncated'] = False
             
             if not result['success']:
-                result['error'] = f"Process failed with code {process.returncode}"
+                # Extract meaningful error from stderr
+                error_lines = process.stderr.split('\n')[-10:]  # Last 10 lines
+                result['error'] = f"Process failed with code {process.returncode}. Error: {' '.join(error_lines).strip()}"
             
-        except subprocess.TimeoutExpired:
-            result['error'] = "Task timed out after 5 minutes"
+        except subprocess.TimeoutExpired as e:
+            result['error'] = "Task timed out after 10 minutes"
+            # Try to get partial output
+            if hasattr(e, 'stdout') and e.stdout:
+                result['stdout'] = e.stdout[-10000:] if len(e.stdout) > 10000 else e.stdout
+            if hasattr(e, 'stderr') and e.stderr:
+                result['stderr'] = e.stderr[-5000:] if len(e.stderr) > 5000 else e.stderr
+        except FileNotFoundError:
+            result['error'] = "run_aide.py not found. Make sure you're running from the correct directory."
+        except PermissionError:
+            result['error'] = "Permission denied running benchmark command"
         except Exception as e:
-            result['error'] = str(e)
+            result['error'] = f"Unexpected error: {str(e)}"
         
         result['end_time'] = time.time()
         result['duration'] = result['end_time'] - result['start_time']
@@ -306,65 +389,88 @@ class BackendBenchmark:
         with open(latest_file, 'w') as f:
             json.dump(results, f, indent=2, default=str)
     
+    def _generate_report_header(self, results: Dict[str, Any]) -> str:
+        """Generate the report header section."""
+        header = "# AIDE ML Backend Benchmark Report\n\n"
+        header += f"**Generated:** {results['metadata']['timestamp']}\n\n"
+        header += f"**Backends tested:** {', '.join(results['metadata']['backends'])}\n"
+        header += f"**Number of tasks:** {results['metadata']['num_tasks']}\n\n"
+        return header
+    
+    def _generate_performance_table(self, results: Dict[str, Any]) -> str:
+        """Generate the performance comparison table."""
+        table = "### Performance Comparison\n\n"
+        table += "| Backend | Success Rate | Avg Duration (s) | Total Runs |\n"
+        table += "|---------|--------------|------------------|------------|\n"
+        
+        for backend, stats in results['summary'].items():
+            if backend != 'best_performers':
+                success_rate = stats.get('success_rate', 0) * 100
+                avg_duration = stats.get('avg_duration', 'N/A')
+                if isinstance(avg_duration, float):
+                    avg_duration = f"{avg_duration:.2f}"
+                
+                table += f"| {backend} | {success_rate:.1f}% | {avg_duration} | {stats['total_runs']} |\n"
+        
+        return table
+    
+    def _generate_best_performers_section(self, results: Dict[str, Any]) -> str:
+        """Generate the best performers section."""
+        section = "\n### Best Performers\n\n"
+        best = results['summary'].get('best_performers', {})
+        
+        if best.get('highest_success_rate'):
+            section += f"- **Highest Success Rate:** {best['highest_success_rate']}\n"
+        if best.get('fastest_average'):
+            section += f"- **Fastest Average:** {best['fastest_average']}\n"
+        
+        return section
+    
+    def _generate_detailed_results(self, results: Dict[str, Any]) -> str:
+        """Generate the detailed results section."""
+        section = "\n## Detailed Results\n\n"
+        
+        for backend, backend_results in results['results'].items():
+            section += f"### {backend}\n\n"
+            
+            for result in backend_results:
+                section += f"**Task:** {result['task']}\n"
+                section += f"- Success: {'✓' if result['success'] else '✗'}\n"
+                section += f"- Duration: {result['duration']:.2f}s\n"
+                
+                if result.get('error'):
+                    section += f"- Error: {result['error']}\n"
+                
+                if result['metrics']:
+                    section += "- Metrics:\n"
+                    for key, value in result['metrics'].items():
+                        if value is not None:
+                            section += f"  - {key}: {value}\n"
+                
+                section += "\n"
+        
+        return section
+    
     def _generate_report(self, results: Dict[str, Any]):
         """Generate human-readable benchmark report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         report_file = self.output_dir / f'benchmark_report_{timestamp}.md'
         
+        # Generate report content using helper methods
+        content = self._generate_report_header(results)
+        content += "## Summary\n\n"
+        content += self._generate_performance_table(results)
+        content += self._generate_best_performers_section(results)
+        content += self._generate_detailed_results(results)
+        
+        # Write to file
         with open(report_file, 'w') as f:
-            f.write("# AIDE ML Backend Benchmark Report\n\n")
-            f.write(f"**Generated:** {results['metadata']['timestamp']}\n\n")
-            f.write(f"**Backends tested:** {', '.join(results['metadata']['backends'])}\n")
-            f.write(f"**Number of tasks:** {results['metadata']['num_tasks']}\n\n")
-            
-            f.write("## Summary\n\n")
-            
-            # Performance table
-            f.write("### Performance Comparison\n\n")
-            f.write("| Backend | Success Rate | Avg Duration (s) | Total Runs |\n")
-            f.write("|---------|--------------|------------------|------------|\n")
-            
-            for backend, stats in results['summary'].items():
-                if backend != 'best_performers':
-                    success_rate = stats.get('success_rate', 0) * 100
-                    avg_duration = stats.get('avg_duration', 'N/A')
-                    if isinstance(avg_duration, float):
-                        avg_duration = f"{avg_duration:.2f}"
-                    
-                    f.write(f"| {backend} | {success_rate:.1f}% | {avg_duration} | {stats['total_runs']} |\n")
-            
-            f.write("\n### Best Performers\n\n")
-            best = results['summary'].get('best_performers', {})
-            if best.get('highest_success_rate'):
-                f.write(f"- **Highest Success Rate:** {best['highest_success_rate']}\n")
-            if best.get('fastest_average'):
-                f.write(f"- **Fastest Average:** {best['fastest_average']}\n")
-            
-            f.write("\n## Detailed Results\n\n")
-            
-            for backend, backend_results in results['results'].items():
-                f.write(f"### {backend}\n\n")
-                
-                for result in backend_results:
-                    f.write(f"**Task:** {result['task']}\n")
-                    f.write(f"- Success: {'✓' if result['success'] else '✗'}\n")
-                    f.write(f"- Duration: {result['duration']:.2f}s\n")
-                    
-                    if result.get('error'):
-                        f.write(f"- Error: {result['error']}\n")
-                    
-                    if result['metrics']:
-                        f.write("- Metrics:\n")
-                        for key, value in result['metrics'].items():
-                            if value is not None:
-                                f.write(f"  - {key}: {value}\n")
-                    
-                    f.write("\n")
-            
-            # Also save as latest report
-            latest_report = self.output_dir / 'benchmark_report_latest.md'
-            with open(latest_report, 'w') as latest:
-                latest.write(f.read())
+            f.write(content)
+        
+        # Also save as latest report
+        latest_report = self.output_dir / 'benchmark_report_latest.md'
+        with open(latest_report, 'w') as f:
+            f.write(content)
     
     def compare_with_historical(self, current_results: Dict[str, Any]) -> Dict[str, Any]:
         """Compare current benchmark results with historical data."""

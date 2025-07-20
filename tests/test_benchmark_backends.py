@@ -42,6 +42,10 @@ Predict the value of y = 2x + 1 for x = 5.
         self.assertIsNotNone(self.benchmark.performance_monitor)
         self.assertIn('claude_code', self.benchmark.backend_configs)
         self.assertIn('openai', self.benchmark.backend_configs)
+        
+        # Test available backends
+        expected_backends = {'openai', 'anthropic', 'openrouter', 'gemini', 'claude_code', 'hybrid'}
+        self.assertEqual(self.benchmark.available_backends, expected_backends)
     
     def test_get_benchmark_tasks(self):
         """Test getting benchmark tasks."""
@@ -68,6 +72,11 @@ Predict the value of y = 2x + 1 for x = 5.
         self.assertIsNone(result['error'])
         self.assertIn('duration', result)
         self.assertGreater(result['duration'], 0)
+        
+        # Check new fields added in improvements
+        self.assertIn('memory_usage', result)
+        self.assertIn('output_truncated', result)
+        self.assertFalse(result['output_truncated'])  # Should be False for short output
         
         # Check metrics extraction
         self.assertEqual(result['metrics']['iterations'], 1)
@@ -253,6 +262,57 @@ Total tokens: 2000
         self.assertIn('50.0%', content)  # backend1 success rate
         self.assertIn('100.0%', content)  # backend2 success rate
     
+    def test_report_generation_methods(self):
+        """Test the refactored report generation methods."""
+        test_results = {
+            'metadata': {
+                'timestamp': '2025-07-20T10:00:00',
+                'backends': ['backend1'],
+                'tasks': ['task1.md'],
+                'num_tasks': 1,
+                'num_backends': 1
+            },
+            'results': {
+                'backend1': [
+                    {
+                        'task': 'task1.md',
+                        'success': True,
+                        'duration': 10.0,
+                        'metrics': {'iterations': 3}
+                    }
+                ]
+            },
+            'summary': {
+                'backend1': {
+                    'success_rate': 1.0,
+                    'avg_duration': 10.0,
+                    'total_runs': 1
+                },
+                'best_performers': {
+                    'highest_success_rate': 'backend1',
+                    'fastest_average': 'backend1'
+                }
+            }
+        }
+        
+        # Test individual report generation methods
+        header = self.benchmark._generate_report_header(test_results)
+        self.assertIn('AIDE ML Backend Benchmark Report', header)
+        self.assertIn('2025-07-20T10:00:00', header)
+        
+        table = self.benchmark._generate_performance_table(test_results)
+        self.assertIn('Performance Comparison', table)
+        self.assertIn('backend1', table)
+        self.assertIn('100.0%', table)  # Success rate
+        
+        best_performers = self.benchmark._generate_best_performers_section(test_results)
+        self.assertIn('Best Performers', best_performers)
+        self.assertIn('backend1', best_performers)
+        
+        detailed = self.benchmark._generate_detailed_results(test_results)
+        self.assertIn('Detailed Results', detailed)
+        self.assertIn('task1.md', detailed)
+    
     def test_compare_with_historical(self):
         """Test historical comparison."""
         current_results = {
@@ -319,6 +379,57 @@ Total tokens: 2000
         
         # Verify that benchmark was called
         mock_run_single.assert_called_once()
+    
+    def test_validate_backends_success(self):
+        """Test successful backend validation."""
+        valid_backends = ['claude_code', 'openai']
+        result = self.benchmark._validate_backends(valid_backends)
+        self.assertEqual(result, valid_backends)
+    
+    def test_validate_backends_invalid(self):
+        """Test backend validation with invalid backends."""
+        invalid_backends = ['invalid_backend', 'another_invalid']
+        with self.assertRaises(ValueError) as cm:
+            self.benchmark._validate_backends(invalid_backends)
+        
+        self.assertIn("No valid backends found", str(cm.exception))
+        self.assertIn("Available backends:", str(cm.exception))
+    
+    def test_validate_backends_mixed(self):
+        """Test backend validation with mixed valid/invalid backends."""
+        mixed_backends = ['claude_code', 'invalid_backend', 'openai']
+        
+        # Capture stdout to check warning messages
+        import io
+        import sys
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+        
+        try:
+            result = self.benchmark._validate_backends(mixed_backends)
+            self.assertEqual(set(result), {'claude_code', 'openai'})
+            
+            # Check warning was printed
+            output = captured_output.getvalue()
+            self.assertIn("Warning: Skipping invalid backends", output)
+            self.assertIn("invalid_backend", output)
+        finally:
+            sys.stdout = sys.__stdout__
+    
+    def test_validate_backends_unconfigured(self):
+        """Test backend validation with unconfigured but available backends."""
+        # Remove a backend from configs to test this case
+        original_config = self.benchmark.backend_configs.pop('openai', None)
+        
+        try:
+            backends = ['openai', 'claude_code']
+            result = self.benchmark._validate_backends(backends)
+            # Should only return claude_code since openai is not configured
+            self.assertEqual(result, ['claude_code'])
+        finally:
+            # Restore the config
+            if original_config:
+                self.benchmark.backend_configs['openai'] = original_config
 
 
 if __name__ == '__main__':
