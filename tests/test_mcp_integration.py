@@ -18,6 +18,8 @@ from aide.backend.backend_claude_code import (
     _convert_func_spec_to_mcp_tool,
     _create_mcp_config_for_func_spec,
     _extract_function_call,
+    _extract_mcp_tool_call,
+    _extract_json_from_text,
 )
 from aide.backend.utils import FunctionSpec
 from aide.backend.mcp_server import AideMCPServer
@@ -259,6 +261,58 @@ class TestMCPIntegration:
         
         assert "/mcp__aide__call_analyze_data" in prompt_with_mcp
         assert "You must call the function" not in prompt_with_mcp
+    
+    def test_extract_mcp_tool_call_refactored(self):
+        """Test the refactored MCP tool call extraction function."""
+        func_spec = FunctionSpec(
+            name="process_data",
+            json_schema={"type": "object"},
+            description="Process data"
+        )
+        
+        # Test with valid MCP tool call
+        mock_message = Mock()
+        mock_message.tool_calls = [{
+            "tool": "mcp__aide__call_process_data",
+            "input": {"data": "test_data", "options": {"normalize": True}}
+        }]
+        
+        result = _extract_mcp_tool_call([mock_message], func_spec)
+        assert result == {"data": "test_data", "options": {"normalize": True}}
+        
+        # Test with no messages
+        result = _extract_mcp_tool_call([], func_spec)
+        assert result is None
+        
+        # Test with wrong tool name
+        mock_message.tool_calls = [{
+            "tool": "mcp__aide__call_different_function", 
+            "input": {"wrong": "data"}
+        }]
+        result = _extract_mcp_tool_call([mock_message], func_spec)
+        assert result is None
+    
+    def test_extract_json_from_text_refactored(self):
+        """Test the refactored JSON extraction function."""
+        # Test with JSON in code block
+        text_with_json = """
+        Here's the result:
+        ```json
+        {"algorithm": "xgboost", "params": {"max_depth": 5}}
+        ```
+        """
+        result = _extract_json_from_text(text_with_json)
+        assert result == {"algorithm": "xgboost", "params": {"max_depth": 5}}
+        
+        # Test with plain JSON
+        plain_json = '{"model": "random_forest", "accuracy": 0.95}'
+        result = _extract_json_from_text(plain_json)
+        assert result == {"model": "random_forest", "accuracy": 0.95}
+        
+        # Test with invalid JSON - should return original text
+        invalid_json = "This is not JSON at all"
+        result = _extract_json_from_text(invalid_json)
+        assert result == "This is not JSON at all"
 
 
 if __name__ == "__main__":
