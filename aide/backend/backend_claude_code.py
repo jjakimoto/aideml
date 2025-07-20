@@ -276,6 +276,9 @@ def query(
     model = model_kwargs.pop("model", "claude-opus-4")
     use_mcp = model_kwargs.pop("use_mcp", False)  # MCP opt-in flag
     mcp_config_path = model_kwargs.pop("mcp_config_path", None)  # Custom MCP config path
+    use_advanced_mcp = model_kwargs.pop("use_advanced_mcp", False)
+    mcp_http_mode = model_kwargs.pop("mcp_http_mode", False)
+    mcp_http_port = model_kwargs.pop("mcp_http_port", 8080)
     
     # Set up authentication
     _setup_claude_code_auth(provider)
