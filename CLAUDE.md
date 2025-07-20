@@ -45,7 +45,8 @@ aideml/
 - `aide/backend/backend_openai.py` - Integration with OpenAI models.
 - `aide/backend/backend_anthropic.py` - Integration with Anthropic models.
 - `aide/backend/backend_gemini.py` - Integration with Gemini models.
-- `aide/backend/backend_claude_code.py` - Integration with Claude Code SDK (partially implemented).
+- `aide/backend/backend_claude_code.py` - Integration with Claude Code SDK (fully implemented).
+- `aide/backend/backend_hybrid.py` - Hybrid backend that intelligently routes queries to different providers based on task type.
 - `aide/backend/backend_openrouter.py` - Integration with OpenRouter API.
 - `aide/backend/utils.py` - Shared utilities for backend implementations.
 
@@ -60,6 +61,9 @@ aideml/
 - `aide/utils/data_preview.py` - Utilities for previewing and analyzing data.
 - `aide/utils/response.py` - Response handling utilities.
 - `aide/utils/serialize.py` - Serialization utilities for data structures.
+- `aide/utils/performance_monitor.py` - Performance monitoring for LLM backends with metrics tracking and analysis.
+- `aide/utils/view_performance.py` - CLI tool for viewing and analyzing backend performance metrics.
+- `aide/utils/specialized_prompts.py` - Task-specific prompt enhancements for different ML task types.
 - `aide/utils/viz_templates/` - HTML/JS templates for visualization.
 
 ## Environment Setup
@@ -104,18 +108,77 @@ conda activate aideml
 
 ## Claude Code Integration Status
 
-The project includes a partial implementation of Claude Code SDK integration:
+The project includes a **fully implemented** Claude Code SDK integration:
 
-**Implemented:**
+**Fully Implemented:**
 - Backend module (`aide/backend/backend_claude_code.py`) with full query implementation
 - Backend registration in `aide/backend/__init__.py`
 - Unit tests (`test_claude_code_backend.py`)
-- Integration tests stub (`test_integration_aide_ml.py`)
-
-**Not Yet Implemented:**
-- `claude-code-sdk` dependency not in `requirements.txt`
+- Integration tests (`test_integration_aide_ml.py`)
+- `claude-code-sdk>=0.2.0` dependency in `requirements.txt`
 - Backend configuration support in `aide/utils/config.py`
 - CLI arguments (`--backend`, `--backend-opt`) in `run_aide.py`
 - Backend parameter passing in `aide/agent.py`
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-061453.md` for the latest implementation status.
+**Recent Enhancements (Newly Implemented):**
+- ✅ Hybrid Backend: Intelligent routing of queries to different providers based on task type
+  - Code generation tasks automatically routed to Claude Code
+  - Analysis and review tasks can use different models
+  - Configurable via `--backend hybrid` with customizable routing rules
+- ✅ Performance Monitoring: Comprehensive tracking and analysis of backend performance
+  - Automatic metrics collection for all queries
+  - Performance comparison across backends
+  - CLI tool for viewing performance statistics
+  - Persistent logging for historical analysis
+- ✅ Specialized Prompts: ML task-specific prompt enhancements
+  - Automatic detection of ML task types (classification, regression, time series, NLP, CV)
+  - Task-specific best practices and pitfall warnings
+  - Enhanced prompts with relevant guidance for each task type
+  - Improved code review with task-aware hints
+
+**Future Enhancements (Not Yet Implemented):**
+- Tool Extensions: Integration of Claude Code's MCP (Model Context Protocol) for enhanced capabilities
+
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-063718.md` for the latest implementation status.
+
+## Using the New Features
+
+**Hybrid Backend Usage:**
+```bash
+# Use hybrid backend with default settings (Claude Code for code, GPT-4o for analysis)
+python run_aide.py --task aide/example_tasks/house_prices.md --backend hybrid
+
+# Customize hybrid routing
+python run_aide.py --task aide/example_tasks/bitcoin_price.md \
+    --backend hybrid \
+    --backend-opt agent.hybrid.code_backend=claude_code \
+    --backend-opt agent.hybrid.code_model=claude-opus-4 \
+    --backend-opt agent.hybrid.analysis_backend=openai \
+    --backend-opt agent.hybrid.analysis_model=gpt-4o
+```
+
+**Performance Monitoring:**
+```bash
+# View performance summary for all backends
+python -m aide.utils.view_performance summary
+
+# Compare backend performance
+python -m aide.utils.view_performance compare --backends claude_code openai anthropic
+
+# View recent performance for a specific backend
+python -m aide.utils.view_performance recent claude_code --hours 24
+
+# Export performance data
+python -m aide.utils.view_performance export performance_data.json
+```
+
+**Specialized Prompts:**
+```bash
+# Enable specialized prompts (enabled by default)
+python run_aide.py --task aide/example_tasks/house_prices.md \
+    --backend-opt use_specialized_prompts=true
+
+# Disable specialized prompts if needed
+python run_aide.py --task aide/example_tasks/bitcoin_price.md \
+    --backend-opt use_specialized_prompts=false
+```

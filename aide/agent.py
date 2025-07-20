@@ -10,6 +10,7 @@ from .utils import data_preview
 from .utils.config import Config
 from .utils.metric import MetricValue, WorstMetricValue
 from .utils.response import extract_code, extract_text_up_to_code, wrap_code
+from .utils.specialized_prompts import enhance_prompt_for_task, get_task_specific_review_hints
 
 logger = logging.getLogger("aide")
 
@@ -57,6 +58,19 @@ class Agent:
         self.acfg = cfg.agent
         self.journal = journal
         self.data_preview: str | None = None
+        
+        # Configure hybrid backend if selected
+        if self.acfg.backend == "hybrid" and self.acfg.hybrid:
+            from aide.backend.backend_hybrid import configure_hybrid_backend
+            configure_hybrid_backend(
+                code_backend=self.acfg.hybrid.code_backend,
+                code_model=self.acfg.hybrid.code_model,
+                analysis_backend=self.acfg.hybrid.analysis_backend,
+                analysis_model=self.acfg.hybrid.analysis_model,
+                default_backend=self.acfg.hybrid.default_backend,
+                default_model=self.acfg.hybrid.default_model
+            )
+            logger.info("Configured hybrid backend for intelligent query routing")
 
     def search_policy(self) -> Node | None:
         """Select a node to work on (or None to draft a new node)."""
@@ -203,6 +217,14 @@ class Agent:
         if self.acfg.data_preview:
             prompt["Data Overview"] = self.data_preview
 
+        # Apply task-specific prompt enhancements
+        if self.acfg.backend_options.get('use_specialized_prompts', True):
+            prompt = enhance_prompt_for_task(
+                prompt, 
+                task_description=self.task_desc,
+                data_preview=self.data_preview
+            )
+
         plan, code = self.plan_and_code_query(prompt)
         return Node(plan=plan, code=code)
 
@@ -235,6 +257,14 @@ class Agent:
         }
         prompt["Instructions"] |= self._prompt_impl_guideline
 
+        # Apply task-specific prompt enhancements
+        if self.acfg.backend_options.get('use_specialized_prompts', True):
+            prompt = enhance_prompt_for_task(
+                prompt, 
+                task_description=self.task_desc,
+                data_preview=self.data_preview
+            )
+
         plan, code = self.plan_and_code_query(prompt)
         return Node(
             plan=plan,
@@ -266,6 +296,14 @@ class Agent:
 
         if self.acfg.data_preview:
             prompt["Data Overview"] = self.data_preview
+
+        # Apply task-specific prompt enhancements
+        if self.acfg.backend_options.get('use_specialized_prompts', True):
+            prompt = enhance_prompt_for_task(
+                prompt, 
+                task_description=self.task_desc,
+                data_preview=self.data_preview
+            )
 
         plan, code = self.plan_and_code_query(prompt)
         return Node(plan=plan, code=code, parent=parent_node)
@@ -310,6 +348,14 @@ class Agent:
             "Implementation": wrap_code(node.code),
             "Execution output": wrap_code(node.term_out, lang=""),
         }
+        
+        # Add task-specific review hints
+        if self.acfg.backend_options.get('use_specialized_prompts', True):
+            from .utils.specialized_prompts import detect_ml_task_type, get_task_specific_review_hints
+            task_type = detect_ml_task_type(self.task_desc, self.data_preview)
+            review_hints = get_task_specific_review_hints(task_type)
+            if review_hints:
+                prompt["Task-Specific Review Guidelines"] = review_hints
 
         response = cast(
             dict,

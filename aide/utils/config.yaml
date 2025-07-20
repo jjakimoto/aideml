@@ -45,6 +45,15 @@ agent:
   backend: null
   # backend-specific options
   backend_options: {}
+  
+  # hybrid backend configuration (only used when backend is "hybrid")
+  hybrid:
+    code_backend: claude_code
+    code_model: claude-opus-4
+    analysis_backend: null  # null means use default backend
+    analysis_model: gpt-4o
+    default_backend: null   # null means auto-detect
+    default_model: gpt-4o
 
   # LLM settings for coding
   code:
