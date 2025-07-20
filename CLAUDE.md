@@ -24,14 +24,22 @@ aideml/
 │   └── plan.md             # Claude Code integration plan
 ├── sample_results/         # Example outputs from the agent
 ├── tests/                  # Unit tests directory
+│   ├── __init__.py
+│   ├── test_benchmark_backends.py
+│   ├── test_dev_mode.py
+│   ├── test_e2e_all_tasks.py
+│   ├── test_hybrid_backend.py
+│   ├── test_mcp_integration.py
+│   ├── test_performance_monitor.py
+│   └── test_specialized_prompts.py
 ├── environment.yml         # Conda environment specification
 ├── requirements.txt        # Python dependencies
 ├── run_aide.py             # Primary CLI entry point
 ├── run_webui.py            # Web UI entry point
 ├── setup_dev.sh            # Development setup script
-├── test_claude_code_backend.py     # Claude Code backend tests
-├── test_integration_aide_ml.py     # Integration tests
-└── test_mcp_standalone.py          # Standalone MCP functionality tests
+├── test_claude_code_backend.py     # Claude Code backend tests (root level)
+├── test_integration_aide_ml.py     # Integration tests (root level)
+└── test_mcp_standalone.py          # Standalone MCP functionality tests (root level)
 ```
 
 ## Core Modules Quick Reference
@@ -65,6 +73,7 @@ aideml/
 - `aide/utils/serialize.py` - Serialization utilities for data structures.
 - `aide/utils/performance_monitor.py` - Performance monitoring for LLM backends with metrics tracking and analysis.
 - `aide/utils/view_performance.py` - CLI tool for viewing and analyzing backend performance metrics.
+- `aide/utils/benchmark_backends.py` - Systematic performance benchmarking across multiple backends.
 - `aide/utils/specialized_prompts.py` - Task-specific prompt enhancements for different ML task types.
 - `aide/utils/viz_templates/` - HTML/JS templates for visualization.
 
@@ -146,8 +155,18 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - MCP server implementation for handling function calls
   - Opt-in MCP support via `use_mcp=true` parameter
   - Automatic cleanup of temporary MCP configurations
+- ✅ Systematic Performance Benchmarking: Comprehensive benchmarking across backends
+  - Automated benchmark execution with configurable tasks
+  - Performance metrics collection and comparison
+  - Historical tracking and trend analysis
+  - Human-readable reports and JSON output
+- ✅ End-to-End Testing: Full test coverage across all example tasks
+  - Automated testing of all example tasks
+  - Multi-backend compatibility testing
+  - Parallel execution for efficiency
+  - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-070433.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-074242.md` for the latest implementation status.
 
 ## Using the New Features
 
@@ -231,4 +250,65 @@ The MCP (Model Context Protocol) integration enhances Claude Code's function cal
 
 5. **Graceful Fallback**: When MCP is not available or disabled, the backend falls back to text-based function specification in prompts.
 
-6. **Comprehensive Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py` with coverage for all refactored components.
+6. **Comprehensive Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py` (root level) with coverage for all refactored components.
+
+## Systematic Performance Benchmarking
+
+The project now includes comprehensive benchmarking capabilities to compare performance across different LLM backends:
+
+**Usage:**
+```bash
+# Run benchmark on all backends with default tasks
+python -m aide.utils.benchmark_backends
+
+# Benchmark specific backends
+python -m aide.utils.benchmark_backends --backends claude_code openai anthropic
+
+# Use custom tasks directory
+python -m aide.utils.benchmark_backends --tasks-dir /path/to/tasks
+
+# Run with parallel workers
+python -m aide.utils.benchmark_backends --parallel 4
+```
+
+**Features:**
+- Automated benchmark execution across multiple backends
+- Performance metrics collection (duration, success rate, token usage)
+- Comparative analysis and reporting
+- Historical tracking and trend analysis
+- Human-readable reports in Markdown format
+- JSON output for programmatic analysis
+
+**Output:**
+- Benchmark results saved to `~/.aide_ml/benchmarks/`
+- Latest results always available at `benchmark_latest.json`
+- Detailed reports generated as `benchmark_report_*.md`
+
+## End-to-End Testing
+
+Comprehensive end-to-end testing ensures AIDE ML works correctly across all example tasks:
+
+**Usage:**
+```bash
+# Run full end-to-end tests
+python -m pytest tests/test_e2e_all_tasks.py -v
+
+# Run quick smoke test
+python -m pytest tests/test_e2e_all_tasks.py::TestE2ESmoke -v
+
+# Test specific example tasks
+python -m pytest tests/test_e2e_all_tasks.py::TestE2EAllTasks::test_specific_task_bitcoin_price -v
+```
+
+**Features:**
+- Automated testing of all example tasks
+- Parallel execution for efficiency
+- Detailed metrics extraction from outputs
+- Multi-backend compatibility testing
+- Task data validation
+- Comprehensive test reporting
+
+**Test Results:**
+- Results saved to `~/.aide_ml/e2e_test_results/`
+- JSON format with detailed metrics per task
+- Success rate tracking and failure analysis
