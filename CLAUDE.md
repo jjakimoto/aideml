@@ -136,8 +136,6 @@ conda activate aideml
 **LLM Integrations:** OpenAI, Anthropic, Gemini, OpenRouter, Claude Code (fully implemented)
 **Web Framework:** Streamlit (for the UI)
 
-<<<<<<< HEAD
-=======
 ## Claude Code Integration Status
 
 The project includes a **fully implemented** Claude Code SDK integration:
@@ -187,9 +185,7 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-115738.md` for the latest implementation status.
-
->>>>>>> e636a34 (docs: Update CLAUDE.md with latest status report reference)
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-223223.md` for the latest implementation status.
 ## Using the New Features
 
 **Hybrid Backend Usage:**
