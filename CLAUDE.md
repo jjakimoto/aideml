@@ -30,7 +30,8 @@ aideml/
 ├── run_webui.py            # Web UI entry point
 ├── setup_dev.sh            # Development setup script
 ├── test_claude_code_backend.py     # Claude Code backend tests
-└── test_integration_aide_ml.py     # Integration tests
+├── test_integration_aide_ml.py     # Integration tests
+└── test_mcp_standalone.py          # Standalone MCP functionality tests
 ```
 
 ## Core Modules Quick Reference
@@ -45,10 +46,11 @@ aideml/
 - `aide/backend/backend_openai.py` - Integration with OpenAI models.
 - `aide/backend/backend_anthropic.py` - Integration with Anthropic models.
 - `aide/backend/backend_gemini.py` - Integration with Gemini models.
-- `aide/backend/backend_claude_code.py` - Integration with Claude Code SDK (fully implemented).
+- `aide/backend/backend_claude_code.py` - Integration with Claude Code SDK with MCP support (fully implemented).
 - `aide/backend/backend_hybrid.py` - Hybrid backend that intelligently routes queries to different providers based on task type.
 - `aide/backend/backend_openrouter.py` - Integration with OpenRouter API.
 - `aide/backend/utils.py` - Shared utilities for backend implementations.
+- `aide/backend/mcp_server.py` - MCP (Model Context Protocol) server for AIDE ML function calls.
 
 **Web UI:**
 - `aide/webui/app.py` - A Streamlit application for interacting with the AIDE ML agent.
@@ -103,7 +105,7 @@ conda activate aideml
 
 **Core:** Python 3.10+
 **Machine Learning:** The agent can generate code using various ML libraries, but the core project has minimal direct ML dependencies.
-**LLM Integrations:** OpenAI, Anthropic, Gemini, OpenRouter, Claude Code (partial)
+**LLM Integrations:** OpenAI, Anthropic, Gemini, OpenRouter, Claude Code (fully implemented)
 **Web Framework:** Streamlit (for the UI)
 
 ## Claude Code Integration Status
@@ -136,10 +138,16 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Enhanced prompts with relevant guidance for each task type
   - Improved code review with task-aware hints
 
-**Future Enhancements (Not Yet Implemented):**
-- Tool Extensions: Integration of Claude Code's MCP (Model Context Protocol) for enhanced capabilities
+**Recent Enhancements (Newly Implemented):**
+- ✅ Tool Extensions: Integration of Claude Code's MCP (Model Context Protocol) for enhanced capabilities
+  - MCP configuration generation from FunctionSpec objects
+  - MCP tool naming convention (mcp__aide__call_<function_name>)
+  - Support for MCP-based function calling in Claude Code backend
+  - MCP server implementation for handling function calls
+  - Opt-in MCP support via `use_mcp=true` parameter
+  - Automatic cleanup of temporary MCP configurations
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-063718.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-070433.md` for the latest implementation status.
 
 ## Using the New Features
 
@@ -182,3 +190,37 @@ python run_aide.py --task aide/example_tasks/house_prices.md \
 python run_aide.py --task aide/example_tasks/bitcoin_price.md \
     --backend-opt use_specialized_prompts=false
 ```
+
+**MCP (Model Context Protocol) Usage:**
+```bash
+# Enable MCP for function calling in Claude Code backend
+python run_aide.py --task aide/example_tasks/house_prices.md \
+    --backend claude_code \
+    --backend-opt use_mcp=true
+
+# Use MCP with custom configuration path
+python run_aide.py --task aide/example_tasks/bitcoin_price.md \
+    --backend claude_code \
+    --backend-opt use_mcp=true \
+    --backend-opt mcp_config_path=/path/to/mcp-config.json
+
+# MCP with hybrid backend (applies to Claude Code backend)
+python run_aide.py --task task.md \
+    --backend hybrid \
+    --backend-opt agent.hybrid.code_backend=claude_code \
+    --backend-opt agent.claude_code.use_mcp=true
+```
+
+## MCP Integration Details
+
+The MCP (Model Context Protocol) integration enhances Claude Code's function calling capabilities:
+
+1. **Automatic MCP Configuration**: When `use_mcp=true` and a FunctionSpec is provided, the backend automatically generates an MCP configuration that exposes the function as an MCP tool.
+
+2. **MCP Tool Naming**: Functions are exposed with the naming convention `mcp__aide__call_<function_name>`, following MCP security best practices.
+
+3. **MCP Server**: A basic MCP server implementation (`aide/backend/mcp_server.py`) is provided for handling function calls in stdio mode.
+
+4. **Graceful Fallback**: When MCP is not available or disabled, the backend falls back to text-based function specification in prompts.
+
+5. **Testing**: MCP functionality is tested in `tests/test_mcp_integration.py` and `test_mcp_standalone.py`.
