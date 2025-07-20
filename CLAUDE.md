@@ -187,7 +187,7 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
 
-See `docs/plan.md` for the full integration plan and `docs/memos/status_20250120-114738.md` for the latest implementation status.
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-115738.md` for the latest implementation status.
 
 >>>>>>> e636a34 (docs: Update CLAUDE.md with latest status report reference)
 ## Using the New Features
