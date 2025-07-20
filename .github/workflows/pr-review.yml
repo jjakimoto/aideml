@@ -1,0 +1,298 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  review-pr:
+    # Run for PR events, manual dispatch, or when Claude finishes fixes
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
+       (github.event.comment.user.login == 'claude[bot]' || github.event.comment.user.type == 'Bot') &&
+       contains(github.event.comment.body, 'Claude finished') &&
+       (contains(github.event.comment.body, 'fix id') || contains(github.event.comment.body, 'fix-id') || contains(github.event.comment.body, '**fix id**')))
+    
+    runs-on: self-hosted
+    permissions:
+      pull-requests: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Analyze and Review PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            let pr = context.payload.pull_request;
+            let prNumber;
+            
+            // Handle different trigger types
+            if (context.eventName === 'issue_comment') {
+              prNumber = context.payload.issue.number;
+              console.log(`Triggered by Claude fix completion comment for PR #${prNumber}`);
+            } else if (context.eventName === 'pull_request') {
+              if (!pr) {
+                console.log('No pull request found in context');
+                return;
+              }
+              prNumber = pr.number;
+              console.log(`Triggered by pull request event for PR #${prNumber}`);
+            } else if (context.eventName === 'workflow_dispatch') {
+              if (!pr) {
+                console.log('No pull request found in context');
+                return;
+              }
+              prNumber = pr.number;
+              console.log(`Triggered by manual dispatch for PR #${prNumber}`);
+            } else {
+              console.log('Unknown trigger type');
+              return;
+            }
+            
+            // Get PR details for issue_comment triggers
+            if (context.eventName === 'issue_comment') {
+              const prDetails = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              pr = prDetails.data;
+            }
+            
+            // Handle fix completion if triggered by Claude's fix completion comment
+            if (context.eventName === 'issue_comment') {
+              console.log('Processing fix completion and preparing for re-review');
+              
+              // Remove auto-fixing label
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: 'auto-fixing'
+                });
+              } catch (e) {
+                console.log('Could not remove auto-fixing label:', e.message);
+              }
+              
+              // Add auto-fix-completed label
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: ['auto-fix-completed']
+                });
+              } catch (e) {
+                console.log('Could not add auto-fix-completed label:', e.message);
+              }
+            }
+            
+            // Check existing labels to determine fix attempt count
+            const labels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            
+            const labelNames = labels.data.map(l => l.name);
+            let fixAttempts = 0;
+            let reviewAttempt = 1;
+            
+            // Determine review attempt number based on trigger type
+            if (context.eventName === 'issue_comment') {
+              // Extract fix attempt number from fix ID in the comment
+              const fixIdMatch = context.payload.comment.body.match(/fix-\d+-(\d+)-\d+/);
+              if (fixIdMatch) {
+                const completedFixAttempt = parseInt(fixIdMatch[1]);
+                reviewAttempt = completedFixAttempt + 1;
+                fixAttempts = completedFixAttempt;
+                console.log(`Fix attempt ${completedFixAttempt} completed, setting review attempt to ${reviewAttempt}`);
+              } else {
+                console.log('No fix ID found in comment, using default review attempt 1');
+                reviewAttempt = 1;
+                fixAttempts = 0;
+              }
+            } else {
+              // For PR events and manual dispatch, count fix attempts from labels
+              if (labelNames.includes('auto-fix-attempt-1')) fixAttempts = 1;
+              if (labelNames.includes('auto-fix-attempt-2')) fixAttempts = 2;
+              if (labelNames.includes('auto-fix-attempt-3')) fixAttempts = 3;
+              reviewAttempt = fixAttempts + 1;
+              console.log(`Current fix attempts: ${fixAttempts}, setting review attempt to ${reviewAttempt}`);
+            }
+            
+            // Check if PR is already approved
+            if (labelNames.includes('no-fixes-required') || labelNames.includes('review-approved')) {
+              console.log('PR already approved or marked as no fixes required');
+              return;
+            }
+            
+            // Check if review for this attempt number has already been requested
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+            
+            const reviewIdPattern = `review-${prNumber}-${reviewAttempt}-`;
+            const existingReview = comments.data.find(c => 
+              c.body.includes(reviewIdPattern) && 
+              c.body.includes('**REVIEW ID**')
+            );
+            
+            if (existingReview) {
+              console.log(`Review for attempt ${reviewAttempt} already requested, skipping duplicate`);
+              return;
+            }
+            
+            // Get PR details
+            const prDetails = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            
+            // Get changed files
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100
+            });
+            
+            // Generate unique review ID
+            const reviewId = `review-${prNumber}-${reviewAttempt}-${Date.now()}`;
+            
+            // Determine if this is a re-review after fixes
+            const isReReview = context.eventName === 'issue_comment';
+            
+            // Prepare review prompt with fix attempt info and unique review ID
+            const reviewPrompt = `@claude think
+            Please review this Pull Request #${prNumber} based on the following summary and criteria:
+
+            ${isReReview ? '🔄 **RE-REVIEW AFTER FIXES APPLIED**' : '📋 **INITIAL REVIEW**'}
+
+            **REVIEW ID**: ${reviewId}
+            **PR Title**: ${pr.title}
+            **PR Description**: 
+            ${pr.body || 'No description provided'}
+            
+            **Review Attempt**: ${reviewAttempt}/3
+            **Fix Attempts Completed**: ${fixAttempts}/3
+            ${fixAttempts > 0 ? '⚠️ This PR has already undergone ' + fixAttempts + ' auto-fix attempt(s).' : ''}
+            ${isReReview ? '🔧 **Context**: This review is triggered after Claude applied fixes. Please verify that fixes were applied correctly and check for any remaining issues.' : ''}
+            
+            **Changed Files**: ${files.data.length} files changed
+            ${files.data.map(f => `- ${f.filename} (+${f.additions} -${f.deletions})`).join('\n')}
+            
+            **Review Criteria**:
+            
+            1. **Implementation Consistency**
+               - Verify the implementation matches the PR description
+               - Check if all promised features/fixes are implemented
+            
+            2. **Code Quality & Structure**
+               - Identify refactoring opportunities
+               - Assess if code is well-structured and follows SOLID principles
+               - Check for single-purpose functions/classes
+               - Look for duplicated logic
+            
+            3. **Test Coverage**
+               - Evaluate if test coverage is adequate
+               - Check for unit and integration tests
+               - Verify edge cases are tested
+            
+            4. **Coding Conventions**
+               - Check adherence to project style guide
+               - Verify clear naming conventions
+               - Assess code readability
+            
+            5. **Correctness**
+               - Verify requirements are met
+               - Check edge case handling
+               - Ensure tests pass
+            
+            6. **Performance & Safety**
+               - Look for obvious bottlenecks or memory leaks
+               - Check input validation
+               - Ensure secrets are protected
+            
+            7. **Documentation & Logging**
+               - Verify public APIs are documented
+               - Check for meaningful logs and error messages
+            
+            **REQUIRED RESPONSE FORMAT**:
+            
+            Please structure your review using this EXACT format:
+            
+            ## 📋 PR Review Summary
+            
+            ### 🔍 Review Findings
+            
+            **1. Implementation Consistency**: [Your findings]
+            **2. Code Quality & Structure**: [Your findings] 
+            **3. Test Coverage**: [Your findings]
+            **4. Coding Conventions**: [Your findings]
+            **5. Correctness**: [Your findings]
+            **6. Performance & Safety**: [Your findings]
+            **7. Documentation & Logging**: [Your findings]
+            
+            ### 🚨 Issues Identified
+            [List specific issues if any, or "None" if no issues found]
+            
+            ### 💡 Recommendations
+            [Specific suggestions for improvements, or "None" if no improvements needed]
+            
+            ### ✅ FINAL STATUS
+            **STATUS**: [Choose ONE of the following]
+            - \`NO_FIXES_REQUIRED\` - Code is ready for merge
+            - \`FIXES_REQUIRED\` - Code needs changes before merge
+            - \`MAJOR_ISSUES\` - Significant problems that need addressing
+            
+            **REASON**: [Brief explanation of the status]
+            
+            ---
+            **Review Attempt**: ${reviewAttempt}/3
+            
+            **IMPORTANT**: 
+            - You MUST include the FINAL STATUS section with one of the specified statuses
+            - If STATUS is NO_FIXES_REQUIRED, the PR will be marked ready for auto-merge
+            - If STATUS is FIXES_REQUIRED or MAJOR_ISSUES, fixes will be requested
+            - Be specific about what needs to be fixed if issues are found
+            - MUST include the REVIEW ID (${reviewId}) in your response for proper tracking
+            - MUST end your response with "**Claude finished**" to indicate completion`;
+            
+            // Add reviewing label
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['reviewing']
+              });
+            } catch (e) {
+              console.log('Could not add reviewing label:', e.message);
+            }
+            
+            // Post review request comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: reviewPrompt
+            });
+            
+            console.log(`Review requested for PR #${prNumber} (Attempt ${reviewAttempt}/3) with Review ID: ${reviewId}`);

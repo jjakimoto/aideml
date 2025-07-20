@@ -1,0 +1,44 @@
+name: aideml
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy=1.26.2
+  - pandas=2.1.4
+  - scipy=1.11.4
+  - scikit-learn=1.5.0
+  - matplotlib
+  - seaborn
+  - pytorch
+  - torchvision
+  - torchaudio
+  - lightgbm
+  - opencv
+  - scikit-image
+  - biopython
+  - pip:
+    - black==24.3.0
+    - funcy==2.0
+    - humanize==4.8.0
+    - jsonschema==4.19.2
+    - openai>=1.69.0
+    - anthropic>=0.20.0
+    - pytest==7.4.3
+    - requests>=2.32.4
+    - rich==13.7.0
+    - dataclasses_json>=0.6.4
+    - omegaconf>=2.3.0
+    - loguru==0.7.2
+    - shutup>=0.2.0
+    - tqdm==4.66.3
+    - coolname>=2.2.0
+    - igraph>=0.11.3
+    - genson>=1.2.0
+    - imbalanced-learn
+    - torchtext
+    - gensim
+    - streamlit
+    - python-dotenv

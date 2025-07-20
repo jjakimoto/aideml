@@ -25,7 +25,7 @@ LLM‑driven agent that writes, evaluates & improves machine‑learning code.
 | Layer | Description | Where to find it |
 | --- | --- | --- |
 | **AIDE *algorithm*** | LLM‑guided agentic tree search in the space of code. | Described in our [paper](https://arxiv.org/abs/2502.13138). |
-| **AIDE ML *repo* (this repo)** | Lean implementation for experimentation & extension. | `pip install aideml` |
+| **AIDE ML *repo* (this repo)** | Lean implementation for experimentation & extension. | Run directly from source |
 | **Weco *product*** | The platform generalizes AIDE's capabilities to broader code optimization scenarios, providing experiment tracking and enhanced user control. | [weco.ai](https://weco.ai?utm_source=aidemlrepo) |
 
 ### Who should use it?
@@ -70,14 +70,23 @@ LLM‑driven agent that writes, evaluates & improves machine‑learning code.
 ## Quick Start
 
 ```bash
-# 1  Install
-pip install -U aideml
+# 1  Clone the repository
+git clone https://github.com/WecoAI/aideml.git
+cd aideml
 
-# 2  Set an LLM key
+# 2  Install dependencies
+# Option A: Using pip
+pip install -r requirements.txt
+
+# Option B: Using conda (recommended)
+conda env create -f environment.yml
+conda activate aideml
+
+# 3  Set an LLM key
 export OPENAI_API_KEY=<your‑key>  # https://platform.openai.com/api-keys
 
-# 3  Run an optimisation
-aide data_dir="example_tasks/house_prices" \
+# 4  Run an optimisation
+python run_aide.py data_dir="example_tasks/house_prices" \
      goal="Predict the sales price for each house" \
      eval="RMSE between log‑prices"
 ```
@@ -87,14 +96,14 @@ After the run finishes you’ll find:
 - `logs/<id>/best_solution.py` – best code found
 - `logs/<id>/tree_plot.html` – click to inspect the solution tree
 
+
 ---
 
 ## Web UI
 
 ```bash
-pip install -U aideml   # adds streamlit
-cd aide/webui
-streamlit run app.py
+# Run the web interface
+python run_webui.py
 ```
 
 Use the sidebar to paste your API key, upload data, set **Goal** & **Metric**, then press **Run AIDE**.
