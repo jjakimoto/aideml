@@ -155,10 +155,12 @@ class Agent:
         completion_text = None
         for _ in range(retries):
             completion_text = query(
+                backend=self.acfg.backend,
                 system_message=prompt,
                 user_message=None,
                 model=self.acfg.code.model,
                 temperature=self.acfg.code.temp,
+                **self.acfg.backend_options,
             )
 
             code = extract_code(completion_text)
@@ -312,11 +314,13 @@ class Agent:
         response = cast(
             dict,
             query(
+                backend=self.acfg.backend,
                 system_message=prompt,
                 user_message=None,
                 func_spec=review_func_spec,
                 model=self.acfg.feedback.model,
                 temperature=self.acfg.feedback.temp,
+                **self.acfg.backend_options,
             ),
         )
 

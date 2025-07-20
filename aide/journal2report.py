@@ -3,7 +3,7 @@ from .journal import Journal
 from .utils.config import StageConfig
 
 
-def journal2report(journal: Journal, task_desc: dict, rcfg: StageConfig):
+def journal2report(journal: Journal, task_desc: dict, rcfg: StageConfig, backend: str | None = None, backend_options: dict | None = None):
     """
     Generate a report from a journal, the report will be in markdown format.
     """
@@ -22,10 +22,15 @@ def journal2report(journal: Journal, task_desc: dict, rcfg: StageConfig):
         f"Here is the research journal of the agent: <journal>{report_input}<\\journal>, "
         f"and the task description is: <task>{task_desc}<\\task>."
     )
+    if backend_options is None:
+        backend_options = {}
+    
     return query(
+        backend=backend,
         system_message=system_prompt_dict,
         user_message=context_prompt,
         model=rcfg.model,
         temperature=rcfg.temp,
         max_tokens=4096,
+        **backend_options,
     )

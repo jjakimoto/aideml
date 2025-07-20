@@ -13,8 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from aide.agent import Agent
 from aide.journal import Journal
-from aide.utils.config import Config
+from aide.utils.config import prep_cfg, _load_cfg
 from aide.interpreter import Interpreter
+from omegaconf import OmegaConf
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -23,24 +24,30 @@ logger = logging.getLogger(__name__)
 
 def create_test_config(backend="claude_code", task_type="simple"):
     """Create a test configuration for AIDE ML with Claude Code backend."""
-    config = Config()
+    # Load default config and override with test settings
+    config = _load_cfg(use_cli_args=False)
     
     # Basic configuration
-    config.work_dir = tempfile.mkdtemp(prefix="aide_test_")
-    config.max_steps = 3  # Limit steps for testing
+    config.data_dir = tempfile.mkdtemp(prefix="aide_test_data_")
+    config.log_dir = tempfile.mkdtemp(prefix="aide_test_log_")
+    config.workspace_dir = tempfile.mkdtemp(prefix="aide_test_workspace_")
+    config.goal = "Test task for integration testing"
+    config.exp_name = "test-integration"
     
-    # Backend configuration
-    config.backend = backend
-    config.backend_options = {
+    # Agent configuration
+    config.agent.steps = 1  # Just one step for testing
+    config.agent.backend = backend
+    config.agent.backend_options = {
         "provider": "subscription",
         "model": "claude-opus-4",
         "temperature": 0.2,
         "max_turns": 1
     }
-    
-    # Agent configuration
     config.agent.search.num_drafts = 1  # Single draft for testing
     config.agent.search.debug_prob = 0.0
+    
+    # Prep the config to create necessary directories
+    config = prep_cfg(config)
     
     return config
 
@@ -55,7 +62,7 @@ def test_simple_ml_task():
     """
     
     config = create_test_config(backend="claude_code")
-    journal = Journal(config.work_dir)
+    journal = Journal()
     
     try:
         # Initialize agent
@@ -72,17 +79,14 @@ def test_simple_ml_task():
                 return_code=0
             )
         
-        # Set the mock callback
-        agent._exec_callback = mock_exec_callback
-        
-        # Run one step of the agent
+        # Run one step of the agent with mock callback
         logger.info("Running agent step...")
-        agent.step()
+        agent.step(exec_callback=mock_exec_callback)
         
         # Check if we got any nodes in the journal
         if journal.nodes:
             print(f"\n✓ Successfully created {len(journal.nodes)} node(s)")
-            print(f"First node summary: {journal.nodes[0].summary[:100]}...")
+            print(f"First node plan: {journal.nodes[0].plan[:100] if journal.nodes[0].plan else 'No plan'}...")
             return True
         else:
             print("\n✗ No nodes created")
@@ -96,7 +100,10 @@ def test_simple_ml_task():
     finally:
         # Cleanup
         import shutil
-        shutil.rmtree(config.work_dir, ignore_errors=True)
+        shutil.rmtree(config.workspace_dir, ignore_errors=True)
+        shutil.rmtree(config.log_dir, ignore_errors=True)
+        if os.path.exists(config.data_dir):
+            shutil.rmtree(config.data_dir, ignore_errors=True)
 
 
 def test_backend_integration():
@@ -105,19 +112,19 @@ def test_backend_integration():
     
     try:
         # Import backend module
-        from aide.backend import query as backend_query
+        from aide.backend import query
         
         # Test with Claude Code backend
-        output, req_time, in_tokens, out_tokens, info = backend_query(
+        output = query(
             backend="claude_code",
             system_message="You are a helpful assistant.",
             user_message="Say 'Hello, AIDE ML!'",
-            provider="subscription"
+            provider="subscription",
+            model="claude-opus-4"
         )
         
         print(f"✓ Backend query successful")
-        print(f"  Response: {output}")
-        print(f"  Time: {req_time:.2f}s")
+        print(f"  Response: {output[:100]}..." if len(output) > 100 else f"  Response: {output}")
         return True
         
     except Exception as e:
@@ -180,11 +187,13 @@ def main():
     
     # Additional notes
     print("\n" + "=" * 60)
-    print("Next Steps for Full Integration:")
-    print("1. Update aide/backend/__init__.py to register 'claude_code' backend")
-    print("2. Add claude-code-sdk to requirements.txt")
-    print("3. Update run_aide.py to accept --backend claude_code")
-    print("4. Test with real example tasks using the command line interface")
+    print("Integration Status:")
+    print("✓ Backend registered in aide/backend/__init__.py")
+    print("✓ claude-code-sdk added to requirements.txt")
+    print("✓ run_aide.py accepts --backend and --backend-opt arguments")
+    print("✓ Agent passes backend configuration to query calls")
+    print("\nTo test with real tasks:")
+    print("python run_aide.py --task aide/example_tasks/bitcoin_price.md --backend claude_code")
     
     return 0 if total_passed == len(results) else 1
 
