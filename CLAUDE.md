@@ -136,6 +136,60 @@ conda activate aideml
 **LLM Integrations:** OpenAI, Anthropic, Gemini, OpenRouter, Claude Code (fully implemented)
 **Web Framework:** Streamlit (for the UI)
 
+<<<<<<< HEAD
+=======
+## Claude Code Integration Status
+
+The project includes a **fully implemented** Claude Code SDK integration:
+
+**Fully Implemented:**
+- Backend module (`aide/backend/backend_claude_code.py`) with full query implementation
+- Backend registration in `aide/backend/__init__.py`
+- Unit tests (`test_claude_code_backend.py`)
+- Integration tests (`test_integration_aide_ml.py`)
+- `claude-code-sdk>=0.2.0` dependency in `requirements.txt`
+- Backend configuration support in `aide/utils/config.py`
+- CLI arguments (`--backend`, `--backend-opt`) in `run_aide.py`
+- Backend parameter passing in `aide/agent.py`
+
+**Recent Enhancements (Newly Implemented):**
+- ✅ Hybrid Backend: Intelligent routing of queries to different providers based on task type
+  - Code generation tasks automatically routed to Claude Code
+  - Analysis and review tasks can use different models
+  - Configurable via `--backend hybrid` with customizable routing rules
+- ✅ Performance Monitoring: Comprehensive tracking and analysis of backend performance
+  - Automatic metrics collection for all queries
+  - Performance comparison across backends
+  - CLI tool for viewing performance statistics
+  - Persistent logging for historical analysis
+- ✅ Specialized Prompts: ML task-specific prompt enhancements
+  - Automatic detection of ML task types (classification, regression, time series, NLP, CV)
+  - Task-specific best practices and pitfall warnings
+  - Enhanced prompts with relevant guidance for each task type
+  - Improved code review with task-aware hints
+
+**Recent Enhancements (Newly Implemented):**
+- ✅ Tool Extensions: Integration of Claude Code's MCP (Model Context Protocol) for enhanced capabilities
+  - MCP configuration generation from FunctionSpec objects
+  - MCP tool naming convention (mcp__aide__call_<function_name>)
+  - Support for MCP-based function calling in Claude Code backend
+  - MCP server implementation for handling function calls
+  - Opt-in MCP support via `use_mcp=true` parameter
+  - Automatic cleanup of temporary MCP configurations
+- ✅ Systematic Performance Benchmarking: Comprehensive benchmarking across backends
+  - Automated benchmark execution with configurable tasks
+  - Performance metrics collection and comparison
+  - Historical tracking and trend analysis
+  - Human-readable reports and JSON output
+- ✅ End-to-End Testing: Full test coverage across all example tasks
+  - Automated testing of all example tasks
+  - Multi-backend compatibility testing
+  - Parallel execution for efficiency
+  - Comprehensive test reporting with metrics
+
+See `docs/plan.md` for the full integration plan and `docs/memos/status_20250120-114738.md` for the latest implementation status.
+
+>>>>>>> e636a34 (docs: Update CLAUDE.md with latest status report reference)
 ## Using the New Features
 
 **Hybrid Backend Usage:**
