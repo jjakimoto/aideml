@@ -93,7 +93,7 @@ aideml/
 - `aide/utils/performance_monitor.py` - Performance monitoring for LLM backends with metrics tracking and analysis.
 - `aide/utils/view_performance.py` - CLI tool for viewing and analyzing backend performance metrics.
 - `aide/utils/benchmark_backends.py` - Systematic performance benchmarking across multiple backends.
-- `aide/utils/specialized_prompts.py` - Task-specific prompt enhancements for different ML task types.
+- `aide/utils/specialized_prompts.py` - Task-specific prompt enhancements for different ML task types with code optimization.
 - `aide/utils/viz_templates/` - HTML/JS templates for visualization.
 
 ## Environment Setup
@@ -385,3 +385,14 @@ python -m pytest tests/test_e2e_all_tasks.py::TestE2EAllTasks::test_specific_tas
 - Results saved to `~/.aide_ml/e2e_test_results/`
 - JSON format with detailed metrics per task
 - Success rate tracking and failure analysis
+
+## Recent Updates (2025-01-21)
+
+1. **Fixed Outdated TODO**: Removed outdated TODO comment about nested zip handling in `aide/utils/__init__.py`. The `extract_archives` function already handles nested zips correctly using `rglob("*.zip")`.
+
+2. **Implemented Code Optimization**: The `optimize_code_for_task` function in `aide/utils/specialized_prompts.py` now provides real ML task-specific optimizations:
+   - **Classification**: Adds stratified splits, classification metrics, class imbalance handling
+   - **Regression**: Adds feature scaling, comprehensive metrics, residual analysis
+   - **Time Series**: Fixes train-test split (no shuffle), adds lag features, ensures temporal ordering
+   - **NLP**: Adds text preprocessing, suggests TF-IDF, ensures proper data splitting
+   - **Computer Vision**: Adds data augmentation, normalization, and regularization
