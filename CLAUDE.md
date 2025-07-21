@@ -70,12 +70,12 @@ aideml/
 - `aide/journal.py` - Manages logging and reporting of the agent's activities.
 
 **LLM Backends (`aide/backend/`):**
-- `aide/backend/backend_openai.py` - Integration with OpenAI models.
-- `aide/backend/backend_anthropic.py` - Integration with Anthropic models.
-- `aide/backend/backend_gemini.py` - Integration with Gemini models.
+- `aide/backend/backend_openai.py` - Integration with OpenAI models (with function calling).
+- `aide/backend/backend_anthropic.py` - Integration with Anthropic models (with function calling).
+- `aide/backend/backend_gemini.py` - Integration with Gemini models (with function calling).
 - `aide/backend/backend_claude_code.py` - Integration with Claude Code SDK with MCP support (fully implemented).
 - `aide/backend/backend_hybrid.py` - Hybrid backend that intelligently routes queries to different providers based on task type.
-- `aide/backend/backend_openrouter.py` - Integration with OpenRouter API.
+- `aide/backend/backend_openrouter.py` - Integration with OpenRouter API (with function calling support - NEW).
 - `aide/backend/utils.py` - Shared utilities for backend implementations.
 - `aide/backend/mcp_server.py` - MCP (Model Context Protocol) server for AIDE ML function calls.
 
@@ -184,6 +184,12 @@ The project includes a **fully implemented** Claude Code SDK integration:
   - Multi-backend compatibility testing
   - Parallel execution for efficiency
   - Comprehensive test reporting with metrics
+- ✅ OpenRouter Function Calling: Function calling support for OpenRouter backend (NEW - 2025-01-21)
+  - Full function calling implementation matching OpenAI format
+  - Support for tool specifications and tool choice
+  - Proper error handling for JSON decoding failures
+  - Fallback to text when function names don't match
+  - Maintains provider configuration (Fireworks preference)
 
 See `docs/plan.md` for the full integration plan and `docs/memos/status_20250720-232743.md` for the latest implementation status.
 ## Using the New Features
