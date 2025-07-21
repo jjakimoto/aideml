@@ -2,6 +2,26 @@
 
 This tutorial demonstrates how to use AIDE ML to build a regression model for predicting house sale prices using both Claude Code and Anthropic backends.
 
+## 🔧 Import Note
+
+When creating your own scripts that use AIDE ML, always import from the `aideml.aide` package after adding the parent of aideml to the Python path:
+
+```python
+# Add parent of aideml to path
+import sys
+from pathlib import Path
+aideml_parent = Path(__file__).parent.parent.parent  # Adjust based on your script location
+sys.path.insert(0, str(aideml_parent))
+
+# Then import from aideml.aide package
+from aideml.aide.run import run_experiment
+from aideml.aide.agent import Agent
+from aideml.aide.backend.backend_claude_code import query as claude_query
+from aideml.aide.backend.backend_anthropic import query as anthropic_query
+```
+
+The `run_house_prices.py` script demonstrates this pattern correctly.
+
 ## 📋 Task Overview
 
 **Goal**: Predict the sales price for each house in the test set  

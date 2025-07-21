@@ -10,6 +10,11 @@ import subprocess
 from pathlib import Path
 import json
 
+# Add parent of aideml to path for imports
+project_root = Path(__file__).parent.parent.parent  # aideml directory
+aideml_parent = project_root.parent  # parent of aideml
+sys.path.insert(0, str(aideml_parent))
+
 
 def check_claude_code_auth():
     """Check if Claude Code SDK is authenticated"""

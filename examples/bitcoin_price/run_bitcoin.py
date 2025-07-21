@@ -3,6 +3,22 @@
 Bitcoin Price Prediction Example Runner
 This script runs the AIDE ML agent on the Bitcoin price prediction task
 with support for both Claude Code and Anthropic backends.
+
+IMPORTANT: This script demonstrates the correct way to import from AIDE ML.
+We add the parent of aideml to the Python path, then import from the 'aideml.aide' package.
+
+Example of direct AIDE ML usage in your own scripts:
+    import sys
+    from pathlib import Path
+    
+    # Add parent of aideml to path
+    aideml_parent = Path(__file__).parent.parent.parent  # Adjust based on location
+    sys.path.insert(0, str(aideml_parent))
+    
+    # Import from aideml.aide package
+    from aideml.aide.run import run_experiment
+    from aideml.aide.backend import query_with_backend
+    from aideml.aide.utils.config import load_config
 """
 
 import os
@@ -17,9 +33,10 @@ from datetime import datetime
 
 def setup_environment():
     """Ensure environment is properly configured"""
-    # Add project root to Python path
-    project_root = Path(__file__).parent.parent.parent
-    sys.path.insert(0, str(project_root))
+    # Add parent of aideml to Python path (so we can import as aideml.aide)
+    project_root = Path(__file__).parent.parent.parent  # aideml directory
+    aideml_parent = project_root.parent  # parent of aideml
+    sys.path.insert(0, str(aideml_parent))
     
     # Check if aideml conda environment is active
     if os.environ.get("CONDA_DEFAULT_ENV") != "aideml":
@@ -55,7 +72,7 @@ def build_command(args, project_root, output_dir):
     task_path = project_root / "aide" / "example_tasks" / "bitcoin_price.md"
     
     cmd = [
-        "python", "-m", "aide.run",
+        "python", "-m", "aideml.aide.run",
         "--task", str(task_path),
         "--log-dir", str(output_dir),
         "--backend", args.backend

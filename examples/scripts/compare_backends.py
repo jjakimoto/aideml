@@ -19,9 +19,10 @@ from typing import Dict, List, Any
 
 def setup_environment():
     """Ensure environment is properly configured"""
-    # Add project root to Python path
-    project_root = Path(__file__).parent.parent.parent
-    sys.path.insert(0, str(project_root))
+    # Add parent of aideml to Python path (so we can import as aideml.aide)
+    project_root = Path(__file__).parent.parent.parent  # aideml directory
+    aideml_parent = project_root.parent  # parent of aideml
+    sys.path.insert(0, str(aideml_parent))
     
     # Check if aideml conda environment is active
     if os.environ.get("CONDA_DEFAULT_ENV") != "aideml":
@@ -71,7 +72,7 @@ def run_task_with_backend(task: str, backend: str, project_root: Path,
     # Build command
     task_path = project_root / "aide" / "example_tasks" / f"{task}.md"
     cmd = [
-        "python", "-m", "aide.run",
+        "python", "-m", "aideml.aide.run",
         "--task", str(task_path),
         "--log-dir", str(output_dir),
         "--backend", backend,

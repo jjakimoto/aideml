@@ -2,6 +2,30 @@
 
 This directory contains comprehensive tutorials for running AIDE ML with different example tasks and backends. These tutorials demonstrate how to use AIDE ML with both the Claude Code backend and the original Anthropic backend.
 
+## 🔧 Important: Import Convention
+
+When using AIDE ML in your own scripts, always import from the `aideml.aide` package:
+
+```python
+# Correct way to import AIDE ML modules
+from aideml.aide.agent import Agent
+from aideml.aide.backend import query_with_backend
+from aideml.aide.utils.config import load_config
+from aideml.aide.run import run_experiment
+
+# The scripts in this examples directory set up the path correctly:
+import sys
+from pathlib import Path
+# Add parent of aideml to path
+aideml_parent = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(aideml_parent))
+
+# Then you can import from aideml.aide package
+from aideml.aide import run
+```
+
+This ensures your code works regardless of where it's executed from, as long as the parent directory of `aideml` is in the Python path.
+
 ## 📁 Directory Structure
 
 ```

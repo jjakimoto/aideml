@@ -2,6 +2,25 @@
 
 This tutorial demonstrates how to use AIDE ML to build a time series forecasting model for Bitcoin prices using both Claude Code and Anthropic backends.
 
+## 🔧 Import Note
+
+When creating your own scripts that use AIDE ML, always import from the `aideml.aide` package after adding the parent of aideml to the Python path:
+
+```python
+# Add parent of aideml to path
+import sys
+from pathlib import Path
+aideml_parent = Path(__file__).parent.parent.parent  # Adjust based on your script location
+sys.path.insert(0, str(aideml_parent))
+
+# Then import from aideml.aide package
+from aideml.aide.run import run_experiment
+from aideml.aide.backend import query_with_backend
+from aideml.aide.utils.config import load_config
+```
+
+The `run_bitcoin.py` script demonstrates this pattern correctly.
+
 ## 📋 Task Overview
 
 **Goal**: Build a time series forecasting model for Bitcoin close price  

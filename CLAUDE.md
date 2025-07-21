@@ -129,6 +129,30 @@ conda activate aideml
 - `aide/example_tasks/bitcoin_price.md` - Bitcoin price prediction task.
 - `aide/example_tasks/house_prices.md` - House price regression task.
 
+## Import Convention
+
+When importing AIDE ML modules in your own scripts, use the `aideml.aide` package path:
+
+```python
+# Add parent of aideml to Python path
+import sys
+from pathlib import Path
+aideml_parent = Path(__file__).parent.parent  # Adjust based on your script location
+sys.path.insert(0, str(aideml_parent))
+
+# Import from aideml.aide package
+from aideml.aide.agent import Agent
+from aideml.aide.backend import query_with_backend
+from aideml.aide.utils.config import load_config
+from aideml.aide.run import run_experiment
+
+# For module execution
+python -m aideml.aide.run
+python -m aideml.aide.utils.view_performance
+```
+
+This convention ensures imports work correctly when the parent directory of `aideml` is in the PYTHONPATH.
+
 ## Technical Stack
 
 **Core:** Python 3.10+
@@ -211,16 +235,16 @@ python run_aide.py --task aide/example_tasks/bitcoin_price.md \
 **Performance Monitoring:**
 ```bash
 # View performance summary for all backends
-python -m aide.utils.view_performance summary
+python -m aideml.aide.utils.view_performance summary
 
 # Compare backend performance
-python -m aide.utils.view_performance compare --backends claude_code openai anthropic
+python -m aideml.aide.utils.view_performance compare --backends claude_code openai anthropic
 
 # View recent performance for a specific backend
-python -m aide.utils.view_performance recent claude_code --hours 24
+python -m aideml.aide.utils.view_performance recent claude_code --hours 24
 
 # Export performance data
-python -m aide.utils.view_performance export performance_data.json
+python -m aideml.aide.utils.view_performance export performance_data.json
 ```
 
 **Specialized Prompts:**
@@ -272,7 +296,7 @@ python run_aide.py --task aide/example_tasks/bitcoin_price.md \
 ```python
 # Using async support in custom code
 import asyncio
-from aide.backend.backend_claude_code import query_async
+from aideml.aide.backend.backend_claude_code import query_async
 
 async def main():
     # Run multiple queries concurrently
@@ -297,7 +321,7 @@ asyncio.run(main())
 
 The MCP (Model Context Protocol) integration enhances Claude Code's function calling capabilities:
 
-1. **Automatic MCP Configuration**: When `use_mcp=true` and a FunctionSpec is provided, the backend automatically generates an MCP configuration that exposes the function as an MCP tool using `python -m aide.backend.mcp_server`.
+1. **Automatic MCP Configuration**: When `use_mcp=true` and a FunctionSpec is provided, the backend automatically generates an MCP configuration that exposes the function as an MCP tool using `python -m aideml.aide.backend.mcp_server`.
 
 2. **MCP Tool Naming**: Functions are exposed with the naming convention `mcp__aide__call_<function_name>`, following MCP security best practices.
 
@@ -332,16 +356,16 @@ The project now includes comprehensive benchmarking capabilities to compare perf
 **Usage:**
 ```bash
 # Run benchmark on all backends with default tasks
-python -m aide.utils.benchmark_backends
+python -m aideml.aide.utils.benchmark_backends
 
 # Benchmark specific backends
-python -m aide.utils.benchmark_backends --backends claude_code openai anthropic
+python -m aideml.aide.utils.benchmark_backends --backends claude_code openai anthropic
 
 # Use custom tasks directory
-python -m aide.utils.benchmark_backends --tasks-dir /path/to/tasks
+python -m aideml.aide.utils.benchmark_backends --tasks-dir /path/to/tasks
 
 # Run with parallel workers
-python -m aide.utils.benchmark_backends --parallel 4
+python -m aideml.aide.utils.benchmark_backends --parallel 4
 ```
 
 **Features:**
