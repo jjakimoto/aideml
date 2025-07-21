@@ -237,13 +237,152 @@ class TestReviewHints:
 class TestCodeOptimization:
     """Test code optimization functionality."""
     
-    def test_optimize_code_placeholder(self):
-        """Test that code optimization is currently a placeholder."""
-        original_code = "def predict(X): return model.predict(X)"
+    def test_classification_optimization(self):
+        """Test optimization for classification tasks."""
+        code = """
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+
+# Load data
+df = pd.read_csv('data.csv')
+X = df.drop('target', axis=1)
+y = df['target']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train model
+model = RandomForestClassifier()
+model.fit(X_train, y_train)
+
+# Evaluate
+accuracy = model.score(X_test, y_test)
+print(f"Accuracy: {accuracy}")
+"""
         
-        # Currently just returns the original code
-        optimized = optimize_code_for_task(original_code, MLTaskType.CLASSIFICATION)
-        assert optimized == original_code
+        optimized = optimize_code_for_task(code, MLTaskType.CLASSIFICATION)
+        
+        # Should add stratified split
+        assert "stratify=y" in optimized
+        
+        # Should add more comprehensive metrics
+        assert "classification_report" in optimized
+        assert "confusion_matrix" in optimized
+        
+        # Should check for class imbalance
+        assert "value_counts()" in optimized or "class_weight" in optimized
+    
+    def test_regression_optimization(self):
+        """Test optimization for regression tasks."""
+        code = """
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+
+# Load data
+df = pd.read_csv('data.csv')
+X = df.drop('target', axis=1)
+y = df['target']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train model
+model = RandomForestRegressor()
+model.fit(X_train, y_train)
+
+# Evaluate
+score = model.score(X_test, y_test)
+print(f"R2 Score: {score}")
+"""
+        
+        optimized = optimize_code_for_task(code, MLTaskType.REGRESSION)
+        
+        # Should add feature scaling
+        assert "StandardScaler" in optimized or "MinMaxScaler" in optimized
+        
+        # Should add more metrics
+        assert "mean_squared_error" in optimized or "mean_absolute_error" in optimized
+        
+        # Should add residual analysis
+        assert "residuals" in optimized or "predict" in optimized
+    
+    def test_time_series_optimization(self):
+        """Test optimization for time series tasks."""
+        code = """
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+
+# Load data
+df = pd.read_csv('time_series.csv')
+df['date'] = pd.to_datetime(df['date'])
+X = df.drop(['target', 'date'], axis=1)
+y = df['target']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train model
+model = RandomForestRegressor()
+model.fit(X_train, y_train)
+"""
+        
+        optimized = optimize_code_for_task(code, MLTaskType.TIME_SERIES)
+        
+        # Should NOT use train_test_split with shuffle
+        assert "shuffle=False" in optimized or "TimeSeriesSplit" in optimized
+        
+        # Should add lag features
+        assert "shift(" in optimized or "lag" in optimized
+        
+        # Should preserve temporal order
+        assert "sort" in optimized or ".iloc" in optimized
+    
+    def test_general_task_no_optimization(self):
+        """Test that general tasks don't get unnecessary optimizations."""
+        code = """
+import pandas as pd
+# Some general ML code
+df = pd.read_csv('data.csv')
+print(df.head())
+"""
+        
+        optimized = optimize_code_for_task(code, MLTaskType.GENERAL)
+        
+        # Should return mostly unchanged for general tasks
+        # But might add some universal best practices
+        assert "pd.read_csv" in optimized
+    
+    def test_preserves_existing_optimizations(self):
+        """Test that existing optimizations are preserved."""
+        code = """
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# Already has scaling
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Already has stratification
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, stratify=y, random_state=42
+)
+"""
+        
+        optimized = optimize_code_for_task(code, MLTaskType.CLASSIFICATION)
+        
+        # Should preserve existing optimizations
+        assert "StandardScaler" in optimized
+        assert "stratify=y" in optimized
+        assert "random_state=42" in optimized
+    
+    def test_handles_empty_code(self):
+        """Test handling of empty code."""
+        optimized = optimize_code_for_task("", MLTaskType.CLASSIFICATION)
+        assert optimized == ""
 
 
 class TestTaskEnhancements:

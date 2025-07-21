@@ -382,6 +382,253 @@ def optimize_code_for_task(code: str, task_type: MLTaskType) -> str:
     Returns:
         Optimized code
     """
-    # This is a placeholder for future enhancements
-    # Could add task-specific code templates, imports, etc.
+    if not code or task_type == MLTaskType.GENERAL:
+        return code
+    
+    # Apply task-specific optimizations
+    if task_type == MLTaskType.CLASSIFICATION:
+        return _optimize_classification_code(code)
+    elif task_type == MLTaskType.REGRESSION:
+        return _optimize_regression_code(code)
+    elif task_type == MLTaskType.TIME_SERIES:
+        return _optimize_time_series_code(code)
+    elif task_type == MLTaskType.NLP:
+        return _optimize_nlp_code(code)
+    elif task_type == MLTaskType.COMPUTER_VISION:
+        return _optimize_computer_vision_code(code)
+    else:
+        return code
+
+
+def _optimize_classification_code(code: str) -> str:
+    """Optimize code for classification tasks."""
+    import re
+    
+    # Check if stratified split is missing
+    if "train_test_split" in code and "stratify=" not in code:
+        # Find train_test_split calls and add stratify parameter
+        pattern = r'train_test_split\((.*?)\)'
+        def add_stratify(match):
+            args = match.group(1)
+            # Simple heuristic: if y is mentioned, add stratify=y
+            if ', y' in args or ',y' in args:
+                if 'test_size' in args:
+                    return f'train_test_split({args}, stratify=y)'
+                else:
+                    return f'train_test_split({args}, test_size=0.2, stratify=y)'
+            return match.group(0)
+        code = re.sub(pattern, add_stratify, code, flags=re.DOTALL)
+    
+    # Add classification metrics if missing
+    if "accuracy" in code.lower() and "classification_report" not in code:
+        # Find where predictions are made
+        if "model.score" in code or "accuracy_score" in code:
+            # Add imports
+            if "from sklearn.metrics import" not in code:
+                import_line = "from sklearn.metrics import classification_report, confusion_matrix\n"
+                # Add after other sklearn imports
+                if "from sklearn" in code:
+                    code = re.sub(r'(from sklearn.*\n)', r'\1' + import_line, code, count=1)
+                else:
+                    code = import_line + code
+            
+            # Add metrics calculation after evaluation
+            metrics_code = """
+# Detailed metrics
+y_pred = model.predict(X_test)
+print("\\nClassification Report:")
+print(classification_report(y_test, y_pred))
+print("\\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+"""
+            # Add after accuracy calculation
+            code = re.sub(r'(print.*[Aa]ccuracy.*\n)', r'\1' + metrics_code, code)
+    
+    # Check for class imbalance handling
+    if "RandomForestClassifier()" in code and "class_weight" not in code:
+        code = code.replace("RandomForestClassifier()", 
+                          "RandomForestClassifier(class_weight='balanced')")
+    
+    # Add class distribution check if missing
+    if "value_counts()" not in code and "y" in code:
+        check_code = "\n# Check class distribution\nprint('Class distribution:')\nprint(y.value_counts())\n"
+        # Add after y is defined
+        code = re.sub(r'(y = .*\n)', r'\1' + check_code, code, count=1)
+    
+    return code
+
+
+def _optimize_regression_code(code: str) -> str:
+    """Optimize code for regression tasks."""
+    import re
+    
+    # Add feature scaling if missing
+    if "fit" in code and "StandardScaler" not in code and "MinMaxScaler" not in code:
+        # Add scaler import
+        if "from sklearn.preprocessing import" not in code:
+            import_line = "from sklearn.preprocessing import StandardScaler\n"
+            if "from sklearn" in code:
+                code = re.sub(r'(from sklearn.*\n)', r'\1' + import_line, code, count=1)
+            else:
+                code = import_line + code
+        
+        # Add scaling before train_test_split
+        if "train_test_split" in code:
+            scaling_code = """
+# Scale features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+"""
+            # Replace X with X_scaled in train_test_split
+            code = re.sub(r'(X = .*\n)(.*?)(train_test_split\(X,)', 
+                         r'\1' + scaling_code + r'\2' + r'train_test_split(X_scaled,', 
+                         code, flags=re.DOTALL)
+    
+    # Add more regression metrics
+    if "score" in code and "mean_squared_error" not in code:
+        # Add imports
+        if "from sklearn.metrics import mean_squared_error" not in code:
+            import_line = "from sklearn.metrics import mean_squared_error, mean_absolute_error\n"
+            if "from sklearn" in code:
+                code = re.sub(r'(from sklearn.*\n)', r'\1' + import_line, code, count=1)
+            else:
+                code = import_line + "\n" + code
+        
+        # Add metrics
+        metrics_code = """
+# Additional metrics
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+rmse = mse ** 0.5
+print(f"MSE: {mse:.4f}")
+print(f"MAE: {mae:.4f}")
+print(f"RMSE: {rmse:.4f}")
+
+# Residual analysis
+residuals = y_test - y_pred
+print(f"\\nResiduals mean: {residuals.mean():.4f}")
+print(f"Residuals std: {residuals.std():.4f}")
+"""
+        # Add after score calculation
+        code = re.sub(r'(print.*[Ss]core.*\n)', r'\1' + metrics_code, code)
+    
+    return code
+
+
+def _optimize_time_series_code(code: str) -> str:
+    """Optimize code for time series tasks."""
+    import re
+    
+    # Fix train_test_split for time series
+    if "train_test_split" in code and "shuffle=False" not in code:
+        # Replace train_test_split with time series appropriate split
+        code = re.sub(r'train_test_split\((.*?)\)', 
+                     r'train_test_split(\1, shuffle=False)', 
+                     code, flags=re.DOTALL)
+    
+    # Add lag features if missing
+    if "shift(" not in code and "lag" not in code and "df" in code:
+        lag_code = """
+# Create lag features
+for lag in [1, 7, 30]:
+    df[f'target_lag_{lag}'] = df['target'].shift(lag)
+
+# Drop rows with NaN values from lag features
+df = df.dropna()
+
+"""
+        # Add after dataframe is loaded
+        code = re.sub(r'(df = pd\.read_csv.*\n)', r'\1' + lag_code, code)
+    
+    # Ensure temporal order is preserved
+    if "date" in code.lower() and "sort" not in code:
+        sort_code = "# Ensure data is sorted by date\ndf = df.sort_values('date')\n"
+        code = re.sub(r'(df\[.date.\] = pd\.to_datetime.*\n)', r'\1' + sort_code, code)
+    
+    return code
+
+
+def _optimize_nlp_code(code: str) -> str:
+    """Optimize code for NLP tasks."""
+    import re
+    
+    # Add text preprocessing if missing
+    if "CountVectorizer" in code or "TfidfVectorizer" in code:
+        if "lower()" not in code and ".str." not in code:
+            preprocess_code = """
+# Preprocess text
+X = X.str.lower().str.replace('[^a-zA-Z0-9\\s]', '', regex=True)
+
+"""
+            code = re.sub(r'(X = df\[.*\]\n)', r'\1' + preprocess_code, code)
+    
+    # Suggest TF-IDF if using CountVectorizer
+    if "CountVectorizer" in code and "TfidfVectorizer" not in code:
+        code = code.replace("CountVectorizer", "TfidfVectorizer")
+        code = code.replace("from sklearn.feature_extraction.text import CountVectorizer",
+                          "from sklearn.feature_extraction.text import TfidfVectorizer")
+    
+    # Add train-test split if missing
+    if "fit_transform" in code and "train_test_split" not in code:
+        split_import = "from sklearn.model_selection import train_test_split\n"
+        if "from sklearn" in code:
+            code = re.sub(r'(from sklearn.*\n)', r'\1' + split_import, code, count=1)
+        
+        # Add split after vectorization
+        split_code = """
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X_vec, y, test_size=0.2, random_state=42)
+
+"""
+        code = re.sub(r'(X_vec = vectorizer\.fit_transform.*\n)', r'\1' + split_code, code)
+        
+        # Update model fitting to use split data
+        code = code.replace("model.fit(X_vec, y)", "model.fit(X_train, y_train)")
+    
+    return code
+
+
+def _optimize_computer_vision_code(code: str) -> str:
+    """Optimize code for computer vision tasks."""
+    import re
+    
+    # Add data augmentation if missing
+    if "Sequential" in code and "ImageDataGenerator" not in code and "augmentation" not in code:
+        aug_import = "from tensorflow.keras.preprocessing.image import ImageDataGenerator\n"
+        code = aug_import + code
+        
+        aug_code = """
+# Data augmentation
+datagen = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    horizontal_flip=True,
+    rescale=1./255
+)
+
+"""
+        # Add before model definition
+        code = re.sub(r'(# Build model\n)', aug_code + r'\1', code)
+    
+    # Add normalization if missing
+    if "/255" not in code and "Rescaling" not in code and "normalize" not in code:
+        if "layers.Conv2D" in code:
+            # Add Rescaling layer
+            code = code.replace(
+                "model = models.Sequential([",
+                "model = models.Sequential([\n    layers.Rescaling(1./255, input_shape=(64, 64, 3)),"
+            )
+            # Update Conv2D to not have input_shape
+            code = re.sub(r'layers\.Conv2D\((.*?), input_shape=\(64, 64, 3\)\)', 
+                         r'layers.Conv2D(\1)', code)
+    
+    # Add regularization if missing
+    if "Dropout" not in code and "Dense" in code:
+        # Add dropout after flatten
+        code = re.sub(r'(layers\.Flatten\(\),\n)', 
+                     r'\1    layers.Dropout(0.5),\n', code)
+    
     return code

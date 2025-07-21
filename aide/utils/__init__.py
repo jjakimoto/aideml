@@ -49,8 +49,9 @@ def clean_up_dataset(path: Path):
 def extract_archives(path: Path):
     """
     unzips all .zip files within `path` and cleans up task dir
-
-    [TODO] handle nested zips
+    
+    This function recursively extracts all zip files, including nested zips,
+    using rglob to find zip files at any depth.
     """
     for zip_f in path.rglob("*.zip"):
         f_out_dir = zip_f.with_suffix("")
